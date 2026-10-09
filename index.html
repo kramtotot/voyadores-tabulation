@@ -121,6 +121,7 @@ td input.bad{border-color:var(--bad);background:var(--bad-soft)}
   th{min-width:0}
   tr{break-inside:avoid}
   .jsheet{break-after:page}.jsheet:last-child{break-after:auto}
+  .gavg{break-before:auto}
   td input{border:0!important;background:transparent!important;width:auto;padding:0}
   td input[type=checkbox]{appearance:auto}
   .pill{border:1px solid #888;background:#fff}
@@ -357,7 +358,17 @@ function jsheetView(){
   const dances=[['street','Street Dance'],['pilgrims','Pilgrims Dance'],['awards','Special Awards']];
   return`<div class="tabs sub no-print" role="tablist">${CATS.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${c===k}" data-act="jsc" data-v="${k}">${n} Category</button>`).join('')}</div>
   <div class="tabs sub no-print" role="tablist">${dances.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${d===k}" data-act="jsd" data-v="${k}">${n}</button>`).join('')}</div>
-  ${js.length?js.map(j=>d==='awards'?jsAwards(j,c):jsSheet(j,c,d)).join(''):'<div class="panel empty">No judges assigned to this dance. Set this in Judges Setup.</div>'}`}
+  ${js.length?js.map(j=>d==='awards'?jsAwards(j,c):jsSheet(j,c,d)).join('')+jsGroupAvg(c,d,js.length):'<div class="panel empty">No judges assigned to this dance. Set this in Judges Setup.</div>'}`}
+function jsGroupAvg(c,d,nj){
+  if(d==='awards'){
+    const ts=AWARDS.map(([a])=>awardTable(c,a));
+    return`<div class="panel gavg"><div class="head"><div><h2>Group Average</h2><p>${catName(c)} Category · Special Awards · average of the ranks given by ${nj} judge${nj>1?'s':''}</p></div></div>
+    <div class="scroll"><table class="bordered"><thead><tr><th>Group</th>${AWARDS.map(([a,nm])=>`<th>${nm}<br>Average rank</th><th>${nm}<br>Result</th>`).join('')}</tr></thead><tbody>
+    ${ts[0].map((_,i)=>`<tr><td>Group ${i+1}</td>${ts.map(t=>`<td class="num">${t[i].avg===null?'':fmt(t[i].avg)}</td><td class="rank">${t[i].rank?`<b>${t[i].rank}</b>`:''}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`}
+  const cr=crit(d),rows=table(c,d);const all=rows.map(r=>r.sub);
+  return`<div class="panel gavg"><div class="head"><div><h2>Group Average</h2><p>${catName(c)} Category · ${SUBN[d]} · average of ${nj} judge${nj>1?'s':''}, before deductions</p></div><span class="pill">${S.cfg.weights[d]}% of total</span></div>
+  <div class="scroll"><table class="bordered"><thead><tr><th>Group</th>${cr.map(x=>`<th>${esc(x.n)} <span class="mono">(${x.max}%)</span></th>`).join('')}<th>Average Score <span class="mono">/ ${maxTotal(d)}</span></th><th>Rank</th></tr></thead><tbody>
+  ${rows.map(r=>`<tr class="${r.sub>0&&rankIn(all,r.sub)===1?'r1':''}"><td>Group ${r.g}</td>${r.avgs.map(v=>`<td class="num">${v?fmt(v):''}</td>`).join('')}<td class="tot num">${r.sub?fmt(r.sub):''}</td><td class="rank">${r.sub?`<b>${rankIn(all,r.sub)}</b>`:''}</td></tr>`).join('')}</tbody></table></div></div>`}
 function jsSheet(j,c,d){
   const cr=crit(d),n=nG(c);const tots=[];for(let g=1;g<=n;g++)tots.push(judgeTotal(j.id,c,d,g));
   const filled=tots.filter(v=>v!==null);
@@ -494,7 +505,7 @@ async function downloadPdf(){
   head();
   const panels=[...document.querySelectorAll('#app .panel')].filter(p=>p.querySelector('table')&&!p.classList.contains('no-print'));
   panels.forEach((pan,pi)=>{
-    if(pan.classList.contains('jsheet')&&!first){doc.addPage();y=M;head()}
+    if((pan.classList.contains('jsheet')||pan.classList.contains('gavg'))&&!first){doc.addPage();y=M;head()}
     const h2=pan.querySelector('.head h2'),sub=pan.querySelector('.head p:not(.no-print)');
     if(h2){if(y>H-90){doc.addPage();y=M}doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text(clean(h2.textContent),M,y);y+=13}
     if(sub){doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.text(clean(sub.textContent),M,y);y+=10}
