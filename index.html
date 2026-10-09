@@ -242,7 +242,7 @@ function normCfg(c){c=c||{};const dd=defaultCfg().deductions;const d=c.deduction
   AWARDS=c.awards.map(a=>[a.id,a.n||'Award']);return c}
 
 /* ---------- state ---------- */
-const S={confirm:null,jsc:'elem',jsd:'street',mode:'',cfg:null,judges:{},scores:{},deds:{},awards:{},session:null,cat:'elem',sub:'street',hdr:[null,null,null,null],paper:'a4',atab:'setup',acat:'elem',asub:'street',draft:null,msg:'',ready:false,unsubs:[],pending:{}};
+const S={confirm:null,jsc:'elem',jsd:'street',mode:'',cfg:null,judges:{},scores:{},deds:{},awards:{},session:null,cat:'elem',sub:'street',hdr:[null,null,null,null],paper:'a4',archive:{},sumYear:null,atab:'setup',acat:'elem',asub:'street',draft:null,msg:'',ready:false,unsubs:[],pending:{}};
 let db=null;
 const $app=document.getElementById('app');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -303,6 +303,7 @@ function startRole(){
     watchColl('scores',ds=>{keepPending(ds)});
     watchColl('deductions',ds=>{S.deds={};ds.forEach(d=>S.deds[d.id]=d.data)});
     watchColl('awards',ds=>{keepAwards(ds)});
+    watchColl('archive',ds=>{S.archive={};ds.forEach(d=>S.archive[d.id]=d.data)});
   }else{
     const id=s.id;
     watchColl('scores',ds=>{keepPending(ds)},c=>c.where('judge','==',id));
@@ -359,14 +360,15 @@ function render(){
 function exportBtns(s){
   if(S.mode==='claude')return'';
   if(s.role==='judge')return'<button class="btn" data-act="download">Download</button>';
-  if(['elem','hs','jsheet'].includes(S.atab)&&S.cfg)return'<button class="btn" data-act="download">Download</button>';
+  if((['elem','hs','jsheet'].includes(S.atab)&&S.cfg)||(S.atab==='summary'&&S.sumYear&&S.archive[S.sumYear]))return'<button class="btn" data-act="download">Download</button>';
   return''}
-const TABN={setup:'Tabulation Setup',printing:'Printing Setup',judges:'Judges Setup',elem:'Elementary Category',hs:'Highschool Category',jsheet:'Judges Score Sheet'};
+const TABN={summary:'Summary',setup:'Tabulation Setup',printing:'Printing Setup',judges:'Judges Setup',elem:'Elementary Category',hs:'Highschool Category',jsheet:'Judges Score Sheet'};
 const SUBN={street:'Street Dance',pilgrims:'Pilgrims Dance',overall:'Overall Scores',awards:'Special Awards',deds:'Deductions'};
 function viewTitle(){
   const s=S.session;if(!s)return'';
   if(s.role==='judge')return`${catName(S.cat)} Category · ${SUBN[S.sub]}`;
   if(S.atab==='elem'||S.atab==='hs')return`${TABN[S.atab]} · ${SUBN[S.asub]}`;
+  if(S.atab==='summary')return`Summary · ${S.sumYear||''}`;
   if(S.atab==='jsheet')return`Judges Score Sheet · ${catName(S.jsc)} Category · ${SUBN[S.jsd]}`;
   return TABN[S.atab]||''}
 
@@ -433,14 +435,15 @@ function awardNote(ranks,n){const f=ranks.filter(Boolean);const dup=f.length!==n
 
 /* ---- admin ---- */
 const SETUP_TABS=['setup','printing','judges'];
-const sectOf=k=>SETUP_TABS.includes(k)?'setup':'scores';
+const sectOf=k=>SETUP_TABS.includes(k)?'setup':k==='summary'?'summary':'scores';
 function adminView(){
   const sect=sectOf(S.atab);
   const tabs=Object.entries(TABN).filter(([k])=>sectOf(k)===sect);
   return`<div class="shell"><nav class="side" aria-label="Sections"><div class="sl">Menu</div>
     <button data-act="sect" data-v="setup" ${sect==='setup'?'aria-current="page"':''}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Setup</button>
-    <button data-act="sect" data-v="scores" ${sect==='scores'?'aria-current="page"':''}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>Scores</button></nav><div class="main"><div class="tabs" role="tablist">${tabs.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${S.atab===k}" data-act="atab" data-v="${k}">${n}</button>`).join('')}</div>
-  ${S.atab==='setup'?setupView():S.atab==='printing'?printingView():S.atab==='judges'?judgesView():!S.cfg?`<div class="panel empty">Load the score sheet in Tabulation Setup first.</div>`:S.atab==='jsheet'?jsheetView():catAdmin(S.atab)}</div></div>`}
+    <button data-act="sect" data-v="scores" ${sect==='scores'?'aria-current="page"':''}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>Scores</button>
+    <button data-act="sect" data-v="summary" ${sect==='summary'?'aria-current="page"':''}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Summary</button></nav><div class="main">${sect==='summary'?summaryView():`<div class="tabs" role="tablist">${tabs.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${S.atab===k}" data-act="atab" data-v="${k}">${n}</button>`).join('')}</div>
+  ${S.atab==='setup'?setupView():S.atab==='printing'?printingView():S.atab==='judges'?judgesView():!S.cfg?`<div class="panel empty">Load the score sheet in Tabulation Setup first.</div>`:S.atab==='jsheet'?jsheetView():catAdmin(S.atab)}`}</div></div>`}
 
 function hdrHtml(cls){const im=S.hdr.filter(Boolean);if(!im.length)return'';
   const sum=im.reduce((a,i)=>a+i.w/i.h,0);
@@ -473,6 +476,45 @@ async function compressImg(file){
     for(const q of[.88,.74,.6]){d=c.toDataURL('image/jpeg',q);if(d.length<=MAXIMG)return{d,w,h}}
     sc*=.78}
   throw new Error('big')}
+/* ---------- yearly summary ---------- */
+function archYears(){return Object.keys(S.archive||{}).sort((a,b)=>b-a)}
+function winnersOf(rows,key){const w=rows.filter(r=>r.rank===1&&(key?r[key]>0:r.avg!==null)).map(r=>'Group '+r.g);return w.length?w.join(', '):''}
+function makeSnapshot(year){
+  const q=n=>Math.round((+n||0)*100)/100,cats={};
+  CATS.forEach(([c,cn])=>{
+    const dd=d=>({crit:crit(d).map(x=>({n:x.n,max:x.max})),rows:table(c,d).map(r=>({g:r.g,avgs:r.avgs.map(q),ded:q(r.ded),final:q(r.final),rank:r.rank}))});
+    cats[c]={name:cn,n:nG(c),street:dd('street'),pilgrims:dd('pilgrims'),
+      overall:overall(c).map(r=>({g:r.g,street:q(r.street),pilgrims:q(r.pilgrims),total:q(r.total),rank:r.rank})),
+      awards:AWARDS.map(([a,name])=>({id:a,n:name,rows:awardTable(c,a).map(r=>({g:r.g,n:r.n,avg:r.avg===null?null:q(r.avg),rank:r.rank}))}))}});
+  return{year:+year,event:S.cfg.event,savedAt:Date.now(),weights:{...S.cfg.weights},judges:judgeList().length,cats}}
+function summaryView(){
+  const years=archYears(),sel=S.sumYear&&S.archive[S.sumYear]?String(S.sumYear):null;
+  const yDef=sel||new Date().getFullYear();
+  const top=`<div class="panel no-print"><div class="head"><div><h2>Yearly summary</h2><p>Save each year's final results here. They stay after you clear the scores for the next event.</p></div></div>
+    <div class="row"><div class="field" style="width:130px"><label for="sumy">Year</label><input type="number" id="sumy" min="2000" max="2100" value="${yDef}"></div>
+    <button class="btn pri" data-act="savearchive"${S.cfg?'':' disabled'}>Save current results to this year</button></div>
+    <p class="hint" style="margin-top:8px">${S.cfg?'If the year was already saved, it is replaced.':'Load the score sheet in Tabulation Setup first.'}</p></div>`;
+  const all=years.length?`<div class="panel no-print"><div class="head"><div><h2>All years</h2><p>Select a year to see its full results.</p></div></div>
+    <div class="scroll"><table><thead><tr><th>Year</th>${CATS.map(([k,n])=>`<th>${n} champion</th>`).join('')}<th>Saved on</th></tr></thead><tbody>
+    ${years.map(y=>{const a=S.archive[y];return`<tr class="${y===sel?'r1':''}"><td><button class="btn sm${y===sel?' pri':''}" data-act="sumyear" data-v="${y}">${y}</button></td>${CATS.map(([k])=>`<td>${a.cats&&a.cats[k]?(winnersOf(a.cats[k].overall,'total')||'–'):'–'}</td>`).join('')}<td>${esc(new Date(a.savedAt).toLocaleDateString())}</td></tr>`}).join('')}</tbody></table></div></div>`
+    :'<div class="panel empty no-print">No years saved yet. Enter the year above and press Save once the scores are final.</div>';
+  if(!sel)return top+all;
+  const a=S.archive[sel];
+  const head=`<div class="panel no-print"><div class="head"><div><h2>${sel} results</h2><p>${esc(a.event)} · ${a.judges} judge${a.judges===1?'':'s'}</p></div>
+    <button class="btn bad" data-act="delarchive" data-v="${sel}">Delete ${sel}</button></div></div>`;
+  const dance=(c,cn,d,dn)=>{const x=a.cats[c][d],w=a.weights[d];return`<div class="panel"><div class="head"><div><h2>${sel} · ${cn} · ${dn}</h2></div><span class="pill">${w}% of total score</span></div>
+    <div class="scroll"><table><thead><tr><th>Group</th>${x.crit.map(k=>`<th>${esc(k.n)} <span class="mono">(${k.max}%)</span></th>`).join('')}<th>Deductions</th><th>Final Score <span class="mono">(${w}%)</span></th><th>Rank</th></tr></thead><tbody>
+    ${x.rows.map(r=>`<tr class="${r.rank===1&&r.final>0?'r1':''}"><td>Group ${r.g}</td>${r.avgs.map(v=>`<td class="num">${v?fmt(v):''}</td>`).join('')}<td class="num">${r.ded?'−'+fmt(r.ded):''}</td><td class="tot num">${r.final?fmt(r.final):''}</td><td class="rank">${r.final?`<b>${r.rank}</b>`:''}</td></tr>`).join('')}</tbody></table></div></div>`};
+  const cat=([c,cn])=>{const k=a.cats&&a.cats[c];if(!k)return'';
+    const win=winnersOf(k.overall,'total');
+    return`<div class="panel"><div class="head"><div><h2>${sel} · ${cn} · Overall results</h2>${win?`<p>Champion: <b>${esc(win)}</b></p>`:''}</div><span class="pill">${a.weights.street+a.weights.pilgrims}% total</span></div>
+    <div class="scroll"><table><thead><tr><th>Group</th><th>Street Dance (${a.weights.street}%)</th><th>Pilgrims Dance (${a.weights.pilgrims}%)</th><th>Overall</th><th>Rank</th></tr></thead><tbody>
+    ${k.overall.map(r=>`<tr class="${r.rank===1&&r.total>0?'r1':''}"><td>Group ${r.g}</td><td class="num">${r.street?fmt(r.street):''}</td><td class="num">${r.pilgrims?fmt(r.pilgrims):''}</td><td class="tot num">${r.total?fmt(r.total):''}</td><td class="rank">${r.total?`<b>${r.rank}</b>`:''}</td></tr>`).join('')}</tbody></table></div></div>
+    ${dance(c,cn,'street','Street Dance')}${dance(c,cn,'pilgrims','Pilgrims Dance')}
+    <div class="panel"><div class="head"><div><h2>${sel} · ${cn} · Special awards</h2></div></div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));align-items:start">${(k.awards||[]).map(w=>`<div><h3 style="font-size:16px;margin-bottom:8px">${esc(w.n)}${winnersOf(w.rows)?` · <span class="mono">${esc(winnersOf(w.rows))}</span>`:''}</h3><div class="scroll"><table><thead><tr><th>Group</th><th>Average rank</th><th>Result</th></tr></thead><tbody>
+    ${w.rows.map(r=>`<tr class="${r.rank===1?'r1':''}"><td>Group ${r.g}</td><td class="num">${r.avg===null?'':fmt(r.avg)}</td><td class="rank">${r.rank?`<b>${r.rank}</b>`:''}</td></tr>`).join('')}</tbody></table></div></div>`).join('')}</div></div>`};
+  return top+all+head+CATS.map(cat).join('')}
 function jlabel(j){return j.fullName||j.username}
 function jsheetView(){
   const c=S.jsc,d=S.jsd,js=judgeList().filter(j=>d==='awards'||does(j,d));
@@ -696,12 +738,26 @@ document.addEventListener('click',async e=>{
   const a=t.dataset.act,v=t.dataset.v;
   if(a==='cat'){S.cat=v;render()}
   else if(a==='sub'){S.sub=v;render()}
-  else if(a==='sect'){S.last=S.last||{};S.last[sectOf(S.atab)]=S.atab;S.atab=(S.last[v])||(v==='setup'?'setup':'elem');S.msg='';S.confirm=null;render()}
+  else if(a==='sect'){S.last=S.last||{};S.last[sectOf(S.atab)]=S.atab;S.atab=(S.last[v])||(v==='setup'?'setup':v==='summary'?'summary':'elem');S.msg='';S.confirm=null;render()}
   else if(a==='atab'){S.atab=v;S.msg='';S.confirm=null;render()}
   else if(a==='asub'){S.asub=v;render()}
   else if(a==='jsc'){S.jsc=v;render()}
   else if(a==='jsd'){S.jsd=v;render()}
   else if(a==='paper'){S.paper=v;render();try{await db.doc('config/paper').set({size:v})}catch(err){console.warn(err)}}
+  else if(a==='sumyear'){S.sumYear=v;render()}
+  else if(a==='savearchive'){
+    const y=Math.round(+(document.getElementById('sumy')||{}).value);
+    if(!(y>=2000&&y<=2100)){toast('Enter a year between 2000 and 2100');return}
+    if(!S.cfg){toast('Load the score sheet first');return}
+    const snap=makeSnapshot(y);
+    if(!CATS.some(([c])=>snap.cats[c].overall.some(r=>r.total>0))){toast('There are no scores to save yet');return}
+    if(S.archive[y]&&!t.dataset.armed){t.dataset.armed=1;t.textContent=`Replace the saved ${y}? Press again to confirm`;setTimeout(()=>{if(t.isConnected){delete t.dataset.armed;t.textContent='Save current results to this year'}},4000);return}
+    S.archive[y]=snap;S.sumYear=String(y);render();
+    try{await db.collection('archive').doc(String(y)).set(snap);toast(`Results saved to ${y}`)}catch(err){console.warn(err);toast('Could not save. Try again.')}}
+  else if(a==='delarchive'){
+    if(!t.dataset.armed){t.dataset.armed=1;t.textContent='Press again to delete. This cannot be undone';setTimeout(()=>{if(t.isConnected){delete t.dataset.armed;t.textContent='Delete '+v}},4000);return}
+    delete S.archive[v];S.sumYear=null;render();
+    try{await db.collection('archive').doc(String(v)).delete();toast(`${v} deleted`)}catch(err){console.warn(err)}}
   else if(a==='hdrpick'){S.hslot=+v;const fi=document.getElementById('hdrfile');if(fi)fi.click()}
   else if(a==='hdrdel'){S.hdr[+v]=null;render();try{await db.doc('config/hdr'+(+v+1)).delete()}catch(err){console.warn(err)}}
   else if(a==='download'){await downloadPdf()}
