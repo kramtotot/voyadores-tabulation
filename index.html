@@ -245,7 +245,7 @@ function normCfg(c){c=c||{};const dd=defaultCfg().deductions;const d=c.deduction
   AWARDS=c.awards.map(a=>[a.id,a.n||'Award']);return c}
 
 /* ---------- state ---------- */
-const S={confirm:null,jsc:'elem',jsd:'street',mode:'',cfg:null,judges:{},scores:{},deds:{},awards:{},session:null,cat:'elem',sub:'street',hdr:[null,null,null,null],paper:'a4',archive:{},sumYear:null,share:{on:false},atab:'setup',acat:'elem',asub:'street',draft:null,msg:'',ready:false,unsubs:[],pending:{}};
+const S={confirm:null,jsc:'elem',jsd:'street',mode:'',cfg:null,judges:{},scores:{},deds:{},awards:{},session:null,cat:'elem',sub:'street',hdr:[null,null,null,null],paper:'a4',archive:{},sumYear:null,share:{on:false},fcat:'elem',fsub:'street',atab:'setup',acat:'elem',asub:'street',draft:null,msg:'',ready:false,unsubs:[],pending:{}};
 let db=null;
 const $app=document.getElementById('app');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -492,7 +492,8 @@ function makeSnapshot(year){
     const dd=d=>({crit:crit(d).map(x=>({n:x.n,max:x.max})),rows:table(c,d).map(r=>({g:r.g,avgs:r.avgs.map(q),ded:q(r.ded),final:q(r.final),rank:r.rank}))});
     cats[c]={name:cn,n:nG(c),street:dd('street'),pilgrims:dd('pilgrims'),
       overall:overall(c).map(r=>({g:r.g,street:q(r.street),pilgrims:q(r.pilgrims),total:q(r.total),rank:r.rank})),
-      awards:AWARDS.map(([a,name])=>({id:a,n:name,rows:awardTable(c,a).map(r=>({g:r.g,n:r.n,avg:r.avg===null?null:q(r.avg),rank:r.rank}))}))}});
+      awards:AWARDS.map(([a,name])=>({id:a,n:name,rows:awardTable(c,a).map(r=>({g:r.g,n:r.n,avg:r.avg===null?null:q(r.avg),rank:r.rank}))})),
+      deds:Object.fromEntries(DANCES.map(([d])=>{const items=S.cfg.deductions[d]||[],m=(S.deds[`${c}__${d}`]||{}).d||{};return[d,{items:items.map(it=>({n:it.n,pts:+it.pts||0})),rows:Array.from({length:nG(c)},(_,i)=>i+1).map(g=>({g,t:items.map(it=>(m[g]||{})[it.id]?1:0),total:dedPts(c,d,g)}))}]}))}});
   return{year:+year,event:S.cfg.event,savedAt:Date.now(),weights:{...S.cfg.weights},judges:judgeList().length,cats}}
 function summaryView(){
   const years=archYears(),sel=S.sumYear&&S.archive[S.sumYear]?String(S.sumYear):null;
@@ -523,21 +524,38 @@ function summaryView(){
     ${w.rows.map(r=>`<tr class="${r.rank===1?'r1':''}"><td>Group ${r.g}</td><td class="num">${r.avg===null?'':fmt(r.avg)}</td><td class="rank">${r.rank?`<b>${r.rank}</b>`:''}</td></tr>`).join('')}</tbody></table></div></div>`).join('')}</div></div>`};
   return top+all+head+CATS.map(cat).join('')}
 /* ---------- share overall scores ---------- */
-function sharedOn(){return !!(S.share&&S.share.on&&S.share.cats)}
-function shareSnapshot(){const q=n=>Math.round((+n||0)*100)/100,cats={};
-  CATS.forEach(([c])=>{cats[c]=overall(c).map(r=>({g:r.g,street:q(r.street),pilgrims:q(r.pilgrims),total:q(r.total),rank:r.rank}))});
-  return{on:true,cats,weights:{...S.cfg.weights}}}
+function sharedOn(){return !!(S.share&&S.share.on&&S.share.cats&&S.share.cats.elem&&S.share.cats.elem.overall)}
+function shareSnapshot(){const sn=makeSnapshot(0);delete sn.savedAt;delete sn.year;sn.on=true;return sn}
 let shareLast='';
 function syncShare(){
   if(!S.session||S.session.role!=='admin'||!S.share||!S.share.on||!S.cfg)return;
   const snap=shareSnapshot(),sg=JSON.stringify(snap);if(sg===shareLast)return;shareLast=sg;
   db.doc('config/share').set({...snap,at:Date.now()}).catch(e=>{console.warn(e);shareLast=''})}
-function finalView(){
-  const w=S.share.weights||S.cfg&&S.cfg.weights||{street:40,pilgrims:60};
-  return CATS.map(([c,cn])=>{const rows=(S.share.cats||{})[c]||[];
-    return`<div class="panel"><div class="head"><div><h2>${cn} · Overall final score</h2><p class="no-print">Street Dance plus Pilgrims Dance, after deductions. Shared by the tabulator.</p></div><span class="pill">${w.street+w.pilgrims}% total</span></div>
+function snapView(a,c,sub,pre){
+  const k=a.cats[c],cn=k.name,w=a.weights,P=pre?pre+' · ':'';
+  if(sub==='street'||sub==='pilgrims'){const d=sub,dn=SUBN[d],x=k[d],wd=w[d];
+    return`<div class="panel"><div class="head"><div><h2>${P}${cn} · Score sheet overall, ${dn}</h2><p class="no-print">Criterion scores are the average of all judges who scored them. Deductions come off the sum.</p></div><span class="pill">${wd}% of total score</span></div>
+    <div class="scroll"><table><thead><tr><th>Group</th>${x.crit.map(q=>`<th>${esc(q.n)} <span class="mono">(${q.max}%)</span></th>`).join('')}<th>Deductions</th><th>Final Score <span class="mono">(${wd}%)</span></th><th>Rank</th></tr></thead><tbody>
+    ${x.rows.map(r=>`<tr class="${r.rank===1&&r.final>0?'r1':''}"><td>Group ${r.g}</td>${r.avgs.map(v=>`<td class="num">${v?fmt(v):''}</td>`).join('')}<td class="num">${r.ded?'−'+fmt(r.ded):''}</td><td class="tot num">${r.final?fmt(r.final):''}</td><td class="rank">${r.final?`<b>${r.rank}</b>`:''}</td></tr>`).join('')}</tbody></table></div></div>`}
+  if(sub==='overall')
+    return`<div class="panel"><div class="head"><div><h2>${P}${cn} · Overall score</h2><p class="no-print">Street Dance plus Pilgrims Dance, after deductions.</p></div><span class="pill">${w.street+w.pilgrims}% total</span></div>
     <div class="scroll"><table><thead><tr><th>Group</th><th>Street Dance (${w.street}%)</th><th>Pilgrims Dance (${w.pilgrims}%)</th><th>Overall</th><th>Rank</th></tr></thead><tbody>
-    ${rows.map(r=>`<tr class="${r.rank===1&&r.total>0?'r1':''}"><td>Group ${r.g}</td><td class="num">${r.street?fmt(r.street):''}</td><td class="num">${r.pilgrims?fmt(r.pilgrims):''}</td><td class="tot num">${r.total?fmt(r.total):''}</td><td class="rank">${r.total?`<b>${r.rank}</b>`:''}</td></tr>`).join('')}</tbody></table></div></div>`}).join('')}
+    ${k.overall.map(r=>`<tr class="${r.rank===1&&r.total>0?'r1':''}"><td>Group ${r.g}</td><td class="num">${r.street?fmt(r.street):''}</td><td class="num">${r.pilgrims?fmt(r.pilgrims):''}</td><td class="tot num">${r.total?fmt(r.total):''}</td><td class="rank">${r.total?`<b>${r.rank}</b>`:''}</td></tr>`).join('')}</tbody></table></div></div>`;
+  if(sub==='awards')
+    return`<div class="panel"><div class="head"><div><h2>${P}${cn} · Special awards</h2><p class="no-print">Judges rank each group. The group with the lowest average rank places first.</p></div></div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));align-items:start">${(k.awards||[]).map(w2=>`<div><h3 style="font-size:16px;margin-bottom:8px">${esc(w2.n)}</h3><div class="scroll"><table><thead><tr><th>Group</th><th>Judges ranked</th><th>Average rank</th><th>Result</th></tr></thead><tbody>
+    ${w2.rows.map(r=>`<tr class="${r.rank===1?'r1':''}"><td>Group ${r.g}</td><td class="num">${r.n}</td><td class="num">${r.avg===null?'':fmt(r.avg)}</td><td class="rank">${r.rank?`<b>${r.rank}</b>`:''}</td></tr>`).join('')}</tbody></table></div></div>`).join('')}</div></div>`;
+  return DANCES.map(([d,dn])=>{const x=(k.deds||{})[d]||{items:[],rows:[]};
+    return`<div class="panel"><div class="head"><div><h2>${P}${cn} · Deductions, ${dn}</h2></div></div>
+    <div class="scroll"><table class="ded"><thead><tr><th>Group</th>${x.items.map((it,i)=>`<th title="${esc(it.n)}">${i+1}<br><span class="mono">${it.pts?it.pts+' pt'+(it.pts>1?'s':''):'Forfeit'}</span></th>`).join('')}<th>Total</th></tr></thead><tbody>
+    ${x.rows.map(r=>`<tr><td>Group ${r.g}</td>${r.t.map(v=>`<td>${v?'✓':''}</td>`).join('')}<td class="num tot">${r.total||''}</td></tr>`).join('')}</tbody></table></div>
+    <div class="legend">${x.items.map((it,i)=>`<span><b class="mono">${i+1}</b> ${esc(it.n)}</span>`).join('')}</div></div>`}).join('')}
+function finalView(){
+  const a=S.share,c=a.cats[S.fcat]?S.fcat:'elem',sub=S.fsub||'street',w=a.weights;
+  const subs=[['street',`Street Dance (${w.street}%)`],['pilgrims',`Pilgrims Dance (${w.pilgrims}%)`],['overall','Overall'],['awards','Special Awards'],['deds','Deductions']];
+  return`<div class="tabs sub" role="tablist" style="margin-bottom:8px">${CATS.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${c===k}" data-act="fcat" data-v="${k}">${n}</button>`).join('')}</div>
+  <div class="tabs sub" role="tablist">${subs.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${sub===k}" data-act="fsub" data-v="${k}">${n}</button>`).join('')}</div>
+  ${snapView(a,c,sub,'')}`}
 function jlabel(j){return j.fullName||j.username}
 function jsheetView(){
   const c=S.jsc,d=S.jsd,js=judgeList().filter(j=>d==='awards'||does(j,d));
@@ -761,6 +779,8 @@ document.addEventListener('click',async e=>{
   const a=t.dataset.act,v=t.dataset.v;
   if(a==='cat'){S.cat=v;render()}
   else if(a==='sub'){S.sub=v;render()}
+  else if(a==='fcat'){S.fcat=v;render()}
+  else if(a==='fsub'){S.fsub=v;render()}
   else if(a==='sect'){S.last=S.last||{};S.last[sectOf(S.atab)]=S.atab;S.atab=(S.last[v])||(v==='setup'?'setup':v==='summary'?'summary':'elem');S.msg='';S.confirm=null;render()}
   else if(a==='atab'){S.atab=v;S.msg='';S.confirm=null;render()}
   else if(a==='asub'){S.asub=v;render()}
