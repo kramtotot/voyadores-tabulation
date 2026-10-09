@@ -32,7 +32,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:1
 h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:-.01em}
 button,input,select{font:inherit;color:inherit}
 .wrap{max-width:1180px;margin-inline:auto}
-.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bar);color:#fff;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px 11px;margin:0 -16px 18px;border-bottom:5px solid;border-image:linear-gradient(90deg,#5ac8c8 0 25%,#ffc90e 25% 50%,#f04125 50% 75%,#a98bf0 75%) 1}
+.bar{position:sticky;top:calc(var(--nb,0px) + env(safe-area-inset-top,0px));z-index:5;background:var(--bar);color:#fff;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px 11px;margin:0 -16px 18px;border-bottom:5px solid;border-image:linear-gradient(90deg,#5ac8c8 0 25%,#ffc90e 25% 50%,#f04125 50% 75%,#a98bf0 75%) 1}
 .bar .hint{color:#d9ccf5}
 .bar .chip,.bar .btn{color:var(--ink)}
 body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(circle at 100% 0,rgba(90,200,200,.22) 0 15vmax,transparent calc(15vmax + 1px)),radial-gradient(circle at 0 100%,rgba(240,65,37,.12) 0 13vmax,transparent calc(13vmax + 1px)),radial-gradient(circle at 100% 100%,rgba(255,201,14,.2) 0 10vmax,transparent calc(10vmax + 1px))}
@@ -145,8 +145,17 @@ td input.bad{border-color:var(--bad);background:var(--bad-soft)}
 .pv-row{display:grid;grid-template-columns:2fr repeat(5,1fr) 1fr;border:1px solid #888;border-top:0;height:2.2cqw}
 .pv-row:first-child{border-top:1px solid #888;background:#ddd}
 .pv-row i{border-left:1px solid #888}.pv-row i:first-child{border-left:0}
-.netbar{position:fixed;left:12px;right:12px;bottom:calc(64px + env(safe-area-inset-bottom,0px));max-width:560px;margin:0 auto;z-index:20;padding:10px 14px;border-radius:12px;font-size:14px;font-weight:500;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.3)}
+.netbar{position:sticky;top:0;z-index:30;margin:0 -16px;padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top,0px));font-size:14px;font-weight:600;text-align:center}
 .netbar.off{background:#f04125;color:#fff}.netbar.sync{background:#ffc90e;color:#2a1d00}
+.shell{display:grid;grid-template-columns:190px minmax(0,1fr);gap:20px;align-items:start}
+.side{position:sticky;top:calc(96px + var(--nb,0px));display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:10px}
+.side .sl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:4px 10px 6px}
+.side button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;border-left:4px solid transparent;background:transparent;border-radius:10px;padding:11px 12px;cursor:pointer;font-weight:600;font-size:15px;color:var(--ink)}
+.side button svg{width:20px;height:20px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.side button:hover{background:var(--surface2)}
+.side button[aria-current="page"]{background:var(--navy);color:var(--navy-ink);border-left-color:var(--gold)}
+.main{min-width:0}
+@media (max-width:760px){.shell{grid-template-columns:1fr;gap:12px}.side{position:static;flex-direction:row;padding:6px}.side .sl{display:none}.side button{justify-content:center;padding:9px 8px}}
 @media (max-width:560px){.panel{padding:12px}th,td{padding:6px}}
 @media (prefers-reduced-motion:no-preference){.tab,.btn{transition:background .12s,border-color .12s}}
 @media print{
@@ -154,6 +163,7 @@ td input.bad{border-color:var(--bad);background:var(--bad-soft)}
   @page{size:landscape;margin:10mm}
   body{padding:0;font-size:11px;background:#fff;color:#000}
   body::before{display:none}
+  .side{display:none!important}.shell{display:block}
   .netbar{display:none!important}
   .bar,.tabs,.no-print,.toast,.btn,.msg{display:none!important}
   .print-only{display:block!important}
@@ -239,8 +249,11 @@ if(!device){device='d'+Math.random().toString(36).slice(2,10)+Date.now().toStrin
 const r2=n=>Math.round(n*100)/100;
 const fmt=n=>(Math.round(n*100)/100).toFixed(2);
 (function(){
-  const bar=document.createElement('div');bar.id='netbar';bar.className='netbar';bar.hidden=true;bar.setAttribute('role','status');document.body.appendChild(bar);
-  function upd(){const n=window.__net;if(!n){bar.hidden=true;return}
+  const bar=document.createElement('div');bar.id='netbar';bar.className='netbar';bar.hidden=true;bar.setAttribute('role','status');document.body.insertBefore(bar,document.body.firstChild);
+  const fit=()=>document.documentElement.style.setProperty('--nb',bar.hidden?'0px':bar.offsetHeight+'px');
+  window.addEventListener('resize',fit);
+  function upd(){upd0();fit()}
+  function upd0(){const n=window.__net;if(!n){bar.hidden=true;return}
     const p=n.pending|0;
     if(n.offline){bar.className='netbar off';bar.textContent='Offline mode. Your scores are saved on this device and will update the tally when you are back online.'+(p?` (${p} change${p>1?'s':''} waiting)`:'');bar.hidden=false}
     else if(p){bar.className='netbar sync';bar.textContent=`Back online. Updating the tally… (${p})`;bar.hidden=false}
@@ -415,10 +428,15 @@ function judgeAwards(j,c){
 function awardNote(ranks,n){const f=ranks.filter(Boolean);const dup=f.length!==new Set(f).size;return dup?'Two groups share a rank. Give each group its own rank.':f.length===n?'All groups ranked.':`${f.length} of ${n} groups ranked.`}
 
 /* ---- admin ---- */
+const SETUP_TABS=['setup','printing','judges'];
+const sectOf=k=>SETUP_TABS.includes(k)?'setup':'scores';
 function adminView(){
-  const tabs=Object.entries(TABN);
-  return`<div class="tabs" role="tablist">${tabs.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${S.atab===k}" data-act="atab" data-v="${k}">${n}</button>`).join('')}</div>
-  ${S.atab==='setup'?setupView():S.atab==='printing'?printingView():S.atab==='judges'?judgesView():!S.cfg?`<div class="panel empty">Load the score sheet in Tabulation Setup first.</div>`:S.atab==='jsheet'?jsheetView():catAdmin(S.atab)}`}
+  const sect=sectOf(S.atab);
+  const tabs=Object.entries(TABN).filter(([k])=>sectOf(k)===sect);
+  return`<div class="shell"><nav class="side" aria-label="Sections"><div class="sl">Menu</div>
+    <button data-act="sect" data-v="setup" ${sect==='setup'?'aria-current="page"':''}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Setup</button>
+    <button data-act="sect" data-v="scores" ${sect==='scores'?'aria-current="page"':''}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>Scores</button></nav><div class="main"><div class="tabs" role="tablist">${tabs.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${S.atab===k}" data-act="atab" data-v="${k}">${n}</button>`).join('')}</div>
+  ${S.atab==='setup'?setupView():S.atab==='printing'?printingView():S.atab==='judges'?judgesView():!S.cfg?`<div class="panel empty">Load the score sheet in Tabulation Setup first.</div>`:S.atab==='jsheet'?jsheetView():catAdmin(S.atab)}</div></div>`}
 
 function hdrHtml(cls){const im=S.hdr.filter(Boolean);if(!im.length)return'';
   const sum=im.reduce((a,i)=>a+i.w/i.h,0);
@@ -673,6 +691,7 @@ document.addEventListener('click',async e=>{
   const a=t.dataset.act,v=t.dataset.v;
   if(a==='cat'){S.cat=v;render()}
   else if(a==='sub'){S.sub=v;render()}
+  else if(a==='sect'){S.last=S.last||{};S.last[sectOf(S.atab)]=S.atab;S.atab=(S.last[v])||(v==='setup'?'setup':'elem');S.msg='';S.confirm=null;render()}
   else if(a==='atab'){S.atab=v;S.msg='';S.confirm=null;render()}
   else if(a==='asub'){S.asub=v;render()}
   else if(a==='jsc'){S.jsc=v;render()}
