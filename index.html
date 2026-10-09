@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>html{color-scheme:light dark}body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
-<title>Voyadores Tally Tabulator</title>
+<title>Voyadores Festival Tabulation</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
@@ -255,13 +255,13 @@ function softRender(){
 document.addEventListener('focusout',()=>{setTimeout(()=>{const a=document.activeElement;if(busy&&!(a&&/^(INPUT|SELECT)$/.test(a.tagName)&&$app.contains(a))){busy=false;render()}},60)});
 
 function render(){
-  if(!db){$app.innerHTML=`<div class="login"><div class="panel"><h1>Voyadores Tally</h1><p class="hint">Sign in to claude.ai to open the tabulator. The shared score database is not available in this view.</p></div></div>`;return}
+  if(!db){$app.innerHTML=`<div class="login"><div class="panel"><h1>Voyadores Festival Tabulation</h1><p class="hint">Sign in to claude.ai to open the tabulator. The shared score database is not available in this view.</p></div></div>`;return}
   if(!S.session){$app.innerHTML=loginView();return}
   const s=S.session;
   const who=s.role==='admin'?'Admin · Tabulator':(S.judges[s.id]?S.judges[s.id].username:'Judge');
   const me=s.role==='judge'?(S.judges[s.id]||{}):null;
   const ev=S.cfg?S.cfg.event:'Street and Pilgrims Dance Competition';
-  $app.innerHTML=`<div class="bar"><div class="brand"><b>Voyadores Tally</b><span>${esc(ev)}</span></div>
+  $app.innerHTML=`<div class="bar"><div class="brand"><b>Voyadores Festival Tabulation</b><span>${esc(ev)}</span></div>
     <span class="chip"><i></i>${esc(who)}</span><span class="hint" id="savedAt"></span>
     ${exportBtns(s)}
     <button class="btn" data-act="logout">Sign out</button></div>
@@ -286,7 +286,7 @@ function viewTitle(){
   return TABN[S.atab]||''}
 
 function loginView(){return`<div class="login"><div class="panel">
-  <h1>Voyadores Tally</h1><p class="hint" style="margin:0 0 18px">Street and Pilgrims Dance Competition scoring. Admins and judges sign in here.</p>
+  <h1>Voyadores Festival Tabulation</h1><div style="margin:0 0 18px"></div>
   <form id="loginForm" class="grid" style="grid-template-columns:1fr">
    <div class="field"><label for="lu">Username</label><input id="lu" autocomplete="username" autocapitalize="off" required></div>
    <div class="field"><label for="lp">Password</label><input id="lp" type="password" autocomplete="current-password" required></div>
@@ -562,7 +562,7 @@ document.addEventListener('click',async e=>{
   else if(a==='jsc'){S.jsc=v;render()}
   else if(a==='jsd'){S.jsd=v;render()}
   else if(a==='download'){await downloadPdf()}
-  else if(a==='print'){const old=document.title;document.title='Voyadores Tally - '+viewTitle();const back=()=>{document.title=old;window.removeEventListener('afterprint',back)};window.addEventListener('afterprint',back);window.print()}
+  else if(a==='print'){const old=document.title;document.title='Voyadores Festival Tabulation - '+viewTitle();const back=()=>{document.title=old;window.removeEventListener('afterprint',back)};window.addEventListener('afterprint',back);window.print()}
   else if(a==='logout'){S.session=null;ls.del('tally.session');S.msg='';unsubAll();S.scores={};S.deds={};S.awards={};startCommon();render()}
   else if(a==='loaddefaults'){await db.doc('config/main').set(defaultCfg());toast('Festival defaults loaded')}
   else if(a==='addcrit'){S.draft.criteria[v].push({n:'New criterion',max:5});render()}
