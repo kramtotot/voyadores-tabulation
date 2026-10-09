@@ -111,6 +111,7 @@ td input.bad{border-color:var(--bad);background:var(--bad-soft)}
 .pwrap{background:var(--surface2);border-radius:10px;padding:18px}
 .paper{container-type:inline-size;background:#fff;color:#000;aspect-ratio:297/210;max-width:860px;margin:0 auto;padding:3.4cqw;box-shadow:0 2px 14px rgba(0,0,0,.28);overflow:hidden;font-family:Arial,Helvetica,sans-serif}
 .paper .hdrimgs{display:flex;--mh:13.5cqw;--gap:1cqw;margin-bottom:1.2cqw}
+.paper.long{aspect-ratio:330.2/215.9;padding:3cqw}.paper.long .hdrimgs{--mh:12.1cqw}
 .pv-none{border:1px dashed #999;color:#777;text-align:center;font-size:1.3cqw;padding:2cqw;margin-bottom:1.2cqw}
 .pv-ev{font-weight:700;font-size:1.9cqw;text-align:center}
 .pv-sub{font-size:1.2cqw;text-align:center;margin:.3cqw 0 1.2cqw}
@@ -193,7 +194,7 @@ function normCfg(c){c=c||{};const dd=defaultCfg().deductions;const d=c.deduction
   ['street','pilgrims'].forEach(k=>c.deductions[k].forEach((x,i)=>{if(!x.id)x.id='d'+i}));return c}
 
 /* ---------- state ---------- */
-const S={confirm:null,jsc:'elem',jsd:'street',mode:'',cfg:null,judges:{},scores:{},deds:{},awards:{},session:null,cat:'elem',sub:'street',hdr:[null,null,null,null],atab:'setup',acat:'elem',asub:'street',draft:null,msg:'',ready:false,unsubs:[],pending:{}};
+const S={confirm:null,jsc:'elem',jsd:'street',mode:'',cfg:null,judges:{},scores:{},deds:{},awards:{},session:null,cat:'elem',sub:'street',hdr:[null,null,null,null],paper:'a4',atab:'setup',acat:'elem',asub:'street',draft:null,msg:'',ready:false,unsubs:[],pending:{}};
 let db=null;
 const $app=document.getElementById('app');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -232,6 +233,7 @@ function watchColl(name,onDocs,q){
 function startCommon(){
   S.unsubs.push(db.doc('config/main').onSnapshot(s=>{S.cfg=s.exists?normCfg(s.data()):null;S.draft=null;softRender()},e=>console.warn(e)));
   [1,2,3,4].forEach(i=>S.unsubs.push(db.doc('config/hdr'+i).onSnapshot(s=>{const d=s.exists?s.data():null;S.hdr[i-1]=d&&d.d?d:null;softRender()},e=>console.warn(e))));
+  S.unsubs.push(db.doc('config/paper').onSnapshot(s=>{const d=s.exists?s.data():null;S.paper=d&&d.size==='long'?'long':'a4';softRender()},e=>console.warn(e)));
   watchColl('judges',ds=>{S.judges={};ds.forEach(d=>S.judges[d.id]={...d.data,id:d.id});checkSession()});
 }
 function startRole(){
@@ -295,7 +297,7 @@ function render(){
 function exportBtns(s){
   if(S.mode==='claude')return'';
   if(s.role==='judge')return'<button class="btn" data-act="download">Download</button>';
-  if(['elem','hs','jsheet'].includes(S.atab)&&S.cfg)return'<button class="btn" data-act="download">Download</button><button class="btn" data-act="print">Print</button>';
+  if(['elem','hs','jsheet'].includes(S.atab)&&S.cfg)return'<button class="btn" data-act="download">Download</button>';
   return''}
 const TABN={setup:'Tabulation Setup',printing:'Printing Setup',judges:'Judges Setup',elem:'Elementary Category',hs:'Highschool Category',jsheet:'Judges Score Sheet'};
 const SUBN={street:'Street Dance',pilgrims:'Pilgrims Dance',overall:'Overall Scores',awards:'Special Awards',deds:'Deductions'};
@@ -385,8 +387,10 @@ function printingView(){
     <div class="hslots">${[0,1,2,3].map(slot).join('')}</div>
     <input type="file" id="hdrfile" accept="image/*" hidden>
     ${S.msg?`<div class="msg warn" style="margin-top:12px">${esc(S.msg)}</div>`:''}</div>
-  <div class="panel"><div class="head"><div><h2>Paper preview</h2><p>Landscape A4, the same as Print and Download.</p></div></div>
-    <div class="pwrap"><div class="paper">${hasAny?hdrHtml('hdrimgs'):'<div class="pv-none">Header images appear here</div>'}
+  <div class="panel"><div class="head"><div><h2>Paper size</h2><p>Used for the downloaded PDF and the preview below. Landscape.</p></div></div>
+    <div class="row" style="gap:8px">${[['a4','A4 (297 × 210 mm)'],['long','Long (13 × 8.5 in)']].map(([k,n])=>`<button class="btn${S.paper===k?' gold':''}" aria-pressed="${S.paper===k}" data-act="paper" data-v="${k}">${n}</button>`).join('')}</div></div>
+  <div class="panel"><div class="head"><div><h2>Paper preview</h2><p>${S.paper==='long'?'Long':'A4'} landscape, the same as Download.</p></div></div>
+    <div class="pwrap"><div class="paper${S.paper==='long'?' long':''}">${hasAny?hdrHtml('hdrimgs'):'<div class="pv-none">Header images appear here</div>'}
       <div class="pv-ev">${esc(ev)}</div><div class="pv-sub">Elementary Category · Street Dance</div>
       ${Array.from({length:7},()=>'<div class="pv-row"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>').join('')}</div></div></div>`}
 const MAXIMG=42000;
@@ -408,7 +412,7 @@ function jsheetView(){
   const dances=[['street','Street Dance'],['pilgrims','Pilgrims Dance'],['awards','Special Awards']];
   return`<div class="tabs sub no-print" role="tablist">${CATS.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${c===k}" data-act="jsc" data-v="${k}">${n} Category</button>`).join('')}</div>
   <div class="tabs sub no-print" role="tablist">${dances.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${d===k}" data-act="jsd" data-v="${k}">${n}</button>`).join('')}</div>
-  ${js.length?js.map(j=>d==='awards'?jsAwards(j,c):jsSheet(j,c,d)).join('')+jsGroupAvg(c,d,js.length):'<div class="panel empty">No judges assigned to this dance. Set this in Judges Setup.</div>'}`}
+  ${js.length?js.map(j=>d==='awards'?jsAwards(j,c):jsSheet(j,c,d)).join(''):'<div class="panel empty">No judges assigned to this dance. Set this in Judges Setup.</div>'}`}
 function jsGroupAvg(c,d,nj){
   if(d==='awards'){
     const ts=AWARDS.map(([a])=>awardTable(c,a));
@@ -539,7 +543,7 @@ async function pdfLibs(){
   if(!(window.jspdf&&window.jspdf.jsPDF.API.autoTable))await loadLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js')}
 async function downloadPdf(){
   try{await pdfLibs()}catch(e){console.warn(e);toast('Could not load the PDF tool. Check your connection.');return}
-  const {jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'landscape',unit:'pt',format:'a4'});
+  const {jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'landscape',unit:'pt',format:S.paper==='long'?[612,936]:'a4'});
   const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=32;
   const clean=t=>String(t||'').replace(/−/g,'-').replace(/\s+/g,' ').trim();
   const ev=S.cfg?S.cfg.event:'Street and Pilgrims Dance Competition';
@@ -614,6 +618,7 @@ document.addEventListener('click',async e=>{
   else if(a==='asub'){S.asub=v;render()}
   else if(a==='jsc'){S.jsc=v;render()}
   else if(a==='jsd'){S.jsd=v;render()}
+  else if(a==='paper'){S.paper=v;render();try{await db.doc('config/paper').set({size:v})}catch(err){console.warn(err)}}
   else if(a==='hdrpick'){S.hslot=+v;const fi=document.getElementById('hdrfile');if(fi)fi.click()}
   else if(a==='hdrdel'){S.hdr[+v]=null;render();try{await db.doc('config/hdr'+(+v+1)).delete()}catch(err){console.warn(err)}}
   else if(a==='download'){await downloadPdf()}
