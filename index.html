@@ -145,6 +145,8 @@ td input.bad{border-color:var(--bad);background:var(--bad-soft)}
 .pv-row{display:grid;grid-template-columns:2fr repeat(5,1fr) 1fr;border:1px solid #888;border-top:0;height:2.2cqw}
 .pv-row:first-child{border-top:1px solid #888;background:#ddd}
 .pv-row i{border-left:1px solid #888}.pv-row i:first-child{border-left:0}
+.netbar{position:fixed;left:12px;right:12px;bottom:calc(64px + env(safe-area-inset-bottom,0px));max-width:560px;margin:0 auto;z-index:20;padding:10px 14px;border-radius:12px;font-size:14px;font-weight:500;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.3)}
+.netbar.off{background:#f04125;color:#fff}.netbar.sync{background:#ffc90e;color:#2a1d00}
 @media (max-width:560px){.panel{padding:12px}th,td{padding:6px}}
 @media (prefers-reduced-motion:no-preference){.tab,.btn{transition:background .12s,border-color .12s}}
 @media print{
@@ -152,6 +154,7 @@ td input.bad{border-color:var(--bad);background:var(--bad-soft)}
   @page{size:landscape;margin:10mm}
   body{padding:0;font-size:11px;background:#fff;color:#000}
   body::before{display:none}
+  .netbar{display:none!important}
   .bar,.tabs,.no-print,.toast,.btn,.msg{display:none!important}
   .print-only{display:block!important}
   .print-only.sig{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
@@ -235,6 +238,16 @@ let device=ls.get('tally.device');
 if(!device){device='d'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);ls.set('tally.device',device)}
 const r2=n=>Math.round(n*100)/100;
 const fmt=n=>(Math.round(n*100)/100).toFixed(2);
+(function(){
+  const bar=document.createElement('div');bar.id='netbar';bar.className='netbar';bar.hidden=true;bar.setAttribute('role','status');document.body.appendChild(bar);
+  function upd(){const n=window.__net;if(!n){bar.hidden=true;return}
+    const p=n.pending|0;
+    if(n.offline){bar.className='netbar off';bar.textContent='Offline mode. Your scores are saved on this device and will update the tally when you are back online.'+(p?` (${p} change${p>1?'s':''} waiting)`:'');bar.hidden=false}
+    else if(p){bar.className='netbar sync';bar.textContent=`Back online. Updating the tally… (${p})`;bar.hidden=false}
+    else bar.hidden=true}
+  window.addEventListener('netchange',upd);
+  window.addEventListener('synced',()=>{upd();toast('Back online. Tally updated.')});
+})();
 function toast(t){const e=document.getElementById('toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,2200)}
 const catName=c=>CATS.find(x=>x[0]===c)[1];
 const nG=c=>Math.max(0,+(S.cfg&&S.cfg.contingents[c])||0);
@@ -296,7 +309,7 @@ function checkSession(){
 const timers={};
 function queueSet(coll,id,docData,key){
   S.pending[key]=1;clearTimeout(timers[key]);
-  timers[key]=setTimeout(async()=>{try{await db.collection(coll).doc(id).set(docData());delete S.pending[key];flash('Saved')}catch(e){console.warn(e);toast('Could not save. Check your connection.')}},450);
+  timers[key]=setTimeout(async()=>{try{await db.collection(coll).doc(id).set(docData());delete S.pending[key];flash(window.__net&&window.__net.offline?'Saved on this device':'Saved')}catch(e){console.warn(e);toast('Could not save. Check your connection.')}},450);
 }
 function flash(t){const e=document.getElementById('savedAt');if(e)e.textContent=t+' · '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}
 
@@ -346,7 +359,7 @@ function loginView(){return`<div class="loginbg" aria-hidden="true"><i class="s7
    <div class="field"><label for="lu">Username</label><input id="lu" autocomplete="username" autocapitalize="off" required></div>
    <div class="field"><label for="lp">Password</label><input id="lp" type="password" autocomplete="current-password" required></div>
    <button class="btn pri" type="submit" id="lbtn">Sign in</button></form>
-  ${S.msg?`<div class="msg bad">${esc(S.msg)}</div>`:window.__dbErr?`<div class="msg bad">Database problem: ${esc(window.__dbErr)}</div>`:''}
+  ${S.msg?`<div class="msg bad">${esc(S.msg)}</div>`:window.__net&&window.__net.offline?`<div class="msg warn">You are offline. Judges already signed in on this device can continue, and scores update the tally when you are back online.</div>`:window.__dbErr?`<div class="msg bad">Database problem: ${esc(window.__dbErr)}</div>`:''}
   ${S.mode==='local'?'<div class="msg warn">Demo mode: data stays in this browser only.</div>':''}
   <p class="hint" style="margin-bottom:0">A judge account works on one device only. If you are locked out, ask the tabulator to release it.</p></div></div>`}
 
@@ -632,11 +645,14 @@ document.addEventListener('submit',async e=>{
     const find=()=>judgeList().find(x=>x.username.toLowerCase()===u.toLowerCase());
     let j=find();
     if(!j||j.password!==p){
-      try{const snap=await db.collection('judges').get();const m={};snap.docs.forEach(d=>m[d.id]={...d.data(),id:d.id});S.judges=m}catch(err){console.warn(err);S.msg='Could not reach the database: '+explainErr(err);render();return}
+      try{const snap=await db.collection('judges').get();const m={};snap.docs.forEach(d=>m[d.id]={...d.data(),id:d.id});S.judges=m}catch(err){console.warn(err);if(!(window.__net&&window.__net.offline)){S.msg='Could not reach the database: '+explainErr(err);render();return}}
       j=find()}
     if(!j||j.password!==p){S.msg=judgeList().length?'Wrong username or password.':'No judge accounts exist yet. Ask the tabulator to create them in Judges Setup.';render();return}
     const bound=ls.get('tally.bound');
     if(bound&&bound!==j.id){const bj=S.judges[bound];if(bj&&bj.claimedBy===device){S.msg=`This device is locked to ${bj.username}. It cannot sign in to another account.`;render();return}}
+    if(window.__net&&window.__net.offline){
+      if(bound===j.id&&j.claimedBy===device){S.session={role:'judge',id:j.id};ls.set('tally.session',JSON.stringify(S.session));S.cat='elem';S.sub='street';restart();render();return}
+      S.msg='You are offline. A judge account must be signed in once with a connection before it can work offline.';render();return}
     const ref=db.collection('judges').doc(j.id);
     const lease=await ref.acquire({holder:device,ttlMs:4000});
     if(!lease.acquired){S.msg='Another sign-in is in progress. Try again in a few seconds.';render();return}
@@ -647,7 +663,7 @@ document.addEventListener('submit',async e=>{
     S.session={role:'judge',id:j.id};ls.set('tally.session',JSON.stringify(S.session));
     S.cat='elem';S.sub='street';
     restart();render();
-  }catch(err){console.warn(err);S.msg='Sign-in failed: '+explainErr(err);render()}
+  }catch(err){console.warn(err);S.msg=(window.__net&&window.__net.offline)?'You are offline. A judge account must be signed in once with a connection before it can work offline.':'Sign-in failed: '+explainErr(err);render()}
   finally{const b=document.getElementById('lbtn');if(b)b.disabled=false}
 });
 
@@ -807,8 +823,15 @@ function explainErr(e){
   if(/Unexpected token|JSON|<!DOCTYPE/i.test(m))return'The Web app answered with a Google page instead of data. Deploy it as Execute as: Me, Who has access: Anyone, then use the new /exec link.';
   return m||'Unknown error';}
 function sheetsDb(url,secret){
-  const cache={},subs=[];let seq=0,inflight=0,timer=null,polling=false,loaded=false;
-  const wr=async fn=>{inflight++;try{return await fn()}finally{inflight--;seq++}};
+  const cache={},subs=[];let seq=0,timer=null,polling=false,loaded=false,flushing=false,persistT=null;
+  let queue=[];try{queue=JSON.parse(ls.get('tally.queue')||'[]')||[]}catch(e){queue=[]}
+  const net=window.__net={offline:typeof navigator!=='undefined'&&navigator.onLine===false,pending:queue.length};
+  try{const c=JSON.parse(ls.get('tally.cache')||'null');if(c&&typeof c==='object'&&Object.keys(c).length){Object.assign(cache,c);loaded=true}}catch(e){}
+  const persist=()=>{clearTimeout(persistT);persistT=setTimeout(()=>ls.set('tally.cache',JSON.stringify(cache)),300)};
+  const saveQ=()=>{ls.set('tally.queue',JSON.stringify(queue));net.pending=queue.length};
+  const netEvt=()=>window.dispatchEvent(new Event('netchange'));
+  const setOff=off=>{if(net.offline!==off){net.offline=off;netEvt()}};
+  const isNetErr=e=>e&&(e.name==='TypeError'||e.name==='SyntaxError'||/Failed to fetch|NetworkError|Load failed/i.test(e.message||''));
   async function post(body){
     const r=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({secret,...body})});
     const j=await r.json();if(!j.ok)throw new Error(j.error||'request failed');return j}
@@ -819,31 +842,52 @@ function sheetsDb(url,secret){
     return{docs}}
   function sigOf(sub){if(sub.kind==='doc')return sig((cache[sub.coll]||{})[sub.id]);const v=view(sub);return sig(v.docs.map(d=>[d.id,d.data()]))}
   function notify(force){subs.slice().forEach(s=>{if(!loaded)return;const g=sigOf(s);if(force||g!==s.last){s.last=g;s.next(view(s))}})}
+  async function flush(){
+    if(flushing||!queue.length)return;flushing=true;const had=queue.length;let drained=false;
+    try{
+      while(queue.length){
+        try{await post(queue[0])}
+        catch(e){
+          if(isNetErr(e)){setOff(true);break}
+          if(/unauthori[sz]ed/i.test(e.message||'')){window.__dbErr=explainErr(e);break}
+          console.warn('dropping rejected change',queue[0],e)}
+        queue.shift();saveQ();setOff(false);netEvt()}
+      drained=!queue.length;
+    }finally{flushing=false;netEvt()}
+    if(drained){seq++;window.__dbErr=null;if(had)window.dispatchEvent(new CustomEvent('synced',{detail:had}));poll()}}
   async function poll(){
-    if(polling||!subs.length)return;polling=true;
-    const start=seq;
+    if(polling||!subs.length)return;
+    if(queue.length||flushing){flush();return}
+    polling=true;const start=seq;
     try{
       const colls=[...new Set(subs.map(s=>s.coll))];
       const res=await post({op:'dump',colls});
-      if(seq!==start||inflight>0){polling=false;setTimeout(poll,inflight?400:0);return}   // a write is running or just finished: this answer may be stale, refetch
-      colls.forEach(c=>cache[c]=res.data[c]||{});loaded=true;notify(false);
-    window.__dbErr=null;}catch(e){console.warn('poll',e);const had=window.__dbErr;window.__dbErr=explainErr(e);if(had!==window.__dbErr)window.dispatchEvent(new Event('dberr'))}
+      setOff(false);
+      if(seq!==start||queue.length||flushing){polling=false;if(!queue.length&&!flushing)setTimeout(poll,300);return}
+      colls.forEach(c=>cache[c]=res.data[c]||{});loaded=true;persist();notify(false);
+      window.__dbErr=null;
+    }catch(e){console.warn('poll',e);if(isNetErr(e))setOff(true);const had=window.__dbErr;window.__dbErr=explainErr(e);if(had!==window.__dbErr)window.dispatchEvent(new Event('dberr'))}
     polling=false}
-  function ensureTimer(){if(timer)return;timer=setInterval(()=>{if(!document.hidden)poll()},3500);document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll()})}
-  function addSub(s){subs.push(s);ensureTimer();setTimeout(poll,0);
+  function ensureTimer(){if(timer)return;timer=setInterval(()=>{if(!document.hidden)poll()},3500);
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll()});
+    window.addEventListener('online',()=>{flush();poll()});window.addEventListener('offline',()=>setOff(true))}
+  function addSub(s){subs.push(s);ensureTimer();if(loaded)setTimeout(()=>{if(subs.includes(s)){s.last=sigOf(s);s.next(view(s))}},0);setTimeout(poll,0);
     return()=>{const i=subs.indexOf(s);if(i>=0)subs.splice(i,1)}}
-  const local=(coll,id,fn)=>{seq++;cache[coll]=cache[coll]||{};fn(cache[coll]);notify(false)};
+  const local=(coll,id,fn)=>{seq++;cache[coll]=cache[coll]||{};fn(cache[coll]);persist();notify(false)};
+  const enqueue=op=>{queue.push(op);saveQ();netEvt();flush()};
   const docRef=(coll,id)=>({id,
     async get(){const r=await post({op:'get',coll,id});return{id,exists:r.exists,data:()=>r.data||undefined}},
-    async set(v){const d=JSON.parse(JSON.stringify(v));local(coll,id,c=>c[id]=d);await wr(()=>post({op:'set',coll,id,data:d}))},
-    async update(v){const d=JSON.parse(JSON.stringify(v));await wr(()=>post({op:'update',coll,id,data:d}));local(coll,id,c=>{c[id]=Object.assign(c[id]||{},d)})},
-    async delete(){local(coll,id,c=>{delete c[id]});await wr(()=>post({op:'delete',coll,id}))},
+    async set(v){const d=JSON.parse(JSON.stringify(v));local(coll,id,c=>c[id]=d);enqueue({op:'set',coll,id,data:d})},
+    async update(v){const d=JSON.parse(JSON.stringify(v));local(coll,id,c=>{if(c[id])Object.assign(c[id],d)});enqueue({op:'update',coll,id,data:d})},
+    async delete(){local(coll,id,c=>{delete c[id]});enqueue({op:'delete',coll,id})},
     async acquire({holder,ttlMs=4000}){const r=await post({op:'acquire',coll,id,holder,ttlMs});return{acquired:r.acquired}},
     onSnapshot(next){return addSub({kind:'doc',coll,id,next,last:undefined})}});
   const query=(coll,flt)=>({
     where:(f,o,v)=>query(coll,[f,o,v]),
-    async get(){const r=await post({op:'dump',colls:[coll]});const m=r.data[coll]||{};return{docs:Object.keys(m).map(id=>({id,data:()=>m[id]})).filter(d=>!flt||d.data()[flt[0]]===flt[2])}},
+    async get(){let m;try{const r=await post({op:'dump',colls:[coll]});m=r.data[coll]||{};setOff(false)}catch(e){if(isNetErr(e)&&loaded){setOff(true);m=cache[coll]||{}}else throw e}
+      return{docs:Object.keys(m).map(id=>({id,data:()=>JSON.parse(JSON.stringify(m[id]))})).filter(d=>!flt||d.data()[flt[0]]===flt[2])}},
     onSnapshot(next){return addSub({kind:'coll',coll,flt,next,last:undefined})}});
+  if(queue.length)setTimeout(flush,800);
   return{collection:n=>({...query(n),doc:id=>docRef(n,id)}),doc:p=>{const[c,i]=p.split('/');return docRef(c,i)}};
 }
 function localDb(){
