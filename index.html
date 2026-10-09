@@ -4,7 +4,7 @@
 <title>Voyadores Festival Tabulation</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Lilita+One&display=swap">
 <style>
 /* Layout: sticky app bar, primary category tabs, secondary sheet tabs, scrollable score tables. Navy river-blue with marigold highlight. */
 :root{
@@ -13,6 +13,7 @@
   --gold:#e0a21b; --gold-soft:#fbf0d3; --gold-ink:#6b4a00;
   --ok:#1b7a4b; --ok-soft:#dff3e8; --warn:#9a6200; --warn-soft:#fdf0d2; --bad:#b3261e; --bad-soft:#fbe3e0;
   --f-display:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+  --f-fest:'Lilita One','Bricolage Grotesque',system-ui,sans-serif;
   --f-body:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
   --f-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
 }
@@ -33,7 +34,7 @@ button,input,select{font:inherit;color:inherit}
 .wrap{max-width:1180px;margin-inline:auto}
 .bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-block:12px;border-bottom:1px solid var(--line);margin-bottom:18px}
 .brand{display:flex;flex-direction:column;min-width:0;flex:1 1 220px}
-.brand b{font-family:var(--f-display);font-size:19px;font-weight:800}
+.brand b{font-family:var(--f-fest);font-size:24px;font-weight:400;letter-spacing:.02em;color:var(--navy)}
 .brand span{font-size:12px;color:var(--muted)}
 .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px;font-size:13px}
 .chip i{width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block}
@@ -79,9 +80,31 @@ td input.bad{border-color:var(--bad);background:var(--bad-soft)}
 .crit td:first-child{background:var(--surface)}
 .crit input[type=text]{width:100%;min-width:180px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 8px;text-align:left}
 .crit input[type=number]{width:76px}
-.login{max-width:420px;margin:8vh auto 0}
-.login .panel{padding:26px}
-.login h1{font-size:30px;font-weight:800;margin-bottom:4px}
+.login{position:relative;z-index:1;max-width:430px;margin:3vh auto 0}
+.ina{text-align:center;margin:0 0 14px;position:relative;z-index:2}
+.ina svg{width:min(150px,28vh);height:auto;filter:drop-shadow(0 6px 10px rgba(10,4,30,.45))}
+.inacap{font-family:var(--f-fest);color:#ffc90e;font-size:24px;letter-spacing:.04em;text-shadow:2px 2px 0 #f04125;margin-top:2px}
+.login .panel{padding:28px 26px 24px;border:0;border-radius:24px;box-shadow:0 18px 50px rgba(20,8,50,.45),0 0 0 4px #ffc90e;
+  --surface:#fff;--surface2:#f4f1fb;--ink:#1c1233;--muted:#5d5575;--line:#d4cde6;--navy:#432a7a;--navy-ink:#fff;background:#fff;color:var(--ink)}
+.login h1{font-family:var(--f-fest);font-weight:400;font-size:40px;line-height:1.02;letter-spacing:.01em;margin:0 0 20px;text-wrap:balance}
+.login h1 span{display:block}
+.login h1 .w1{color:#432a7a}.login h1 .w2{color:#f04125;text-shadow:3px 3px 0 #ffc90e}.login h1 .w3{color:#1b9aa0}
+.login .btn.pri{font-family:var(--f-fest);font-size:18px;letter-spacing:.03em;padding:10px 14px;border-radius:12px}
+.login input{border-radius:10px}
+.loginbg{position:fixed;inset:0;z-index:0;overflow:hidden;background:#3d2872}
+.loginbg i{position:absolute;display:block}
+.loginbg .s1{width:46vmin;height:46vmin;border-radius:50%;background:#5ac8c8;right:-12vmin;top:-12vmin}
+.loginbg .s2{width:30vmin;height:38vmin;border-radius:100vmax 100vmax 0 0;background:#f04125;left:-5vmin;bottom:-6vmin;transform:rotate(-12deg)}
+.loginbg .s3{width:30vmin;height:30vmin;border-radius:50%;border:8vmin solid #fecd05;right:6vmin;bottom:-8vmin}
+.loginbg .s4{width:22vmin;height:11vmin;border-radius:11vmin 11vmin 0 0;background:#5ac8c8;left:8vmin;top:9vmin;transform:rotate(18deg)}
+.loginbg .s5{width:9vmin;height:9vmin;border-radius:50%;background:#f04125;right:24vmin;top:14vmin}
+.loginbg .s6{width:12vmin;height:12vmin;border-radius:3vmin;background:#fecd05;left:20vmin;bottom:16vmin;transform:rotate(24deg)}
+.loginbg .s7{width:34vmin;height:34vmin;border-radius:50%;background:#53388f;left:-14vmin;top:30vmin}
+.loginbg .s8{width:16vmin;height:16vmin;border-radius:0 100% 0 100%;background:#fecd05;right:-3vmin;top:40vmin;transform:rotate(-20deg)}
+.loginbg .s9{width:14vmin;height:14vmin;border-radius:100% 0 0 0;background:#f04125;right:30vmin;bottom:5vmin}
+@media (prefers-reduced-motion:no-preference){.loginbg .s2,.loginbg .s6,.loginbg .s8{animation:fl 9s ease-in-out infinite alternate}.loginbg .s5,.loginbg .s9,.loginbg .s4{animation:fl 12s ease-in-out infinite alternate-reverse}}
+@keyframes fl{to{translate:0 -2.4vmin}}
+.award-add{margin-top:10px}
 .msg{padding:10px 12px;border-radius:8px;font-size:14px;margin-top:12px}
 .msg.bad{background:var(--bad-soft);color:var(--bad)} .msg.ok{background:var(--ok-soft);color:var(--ok)} .msg.warn{background:var(--warn-soft);color:var(--warn)}
 .hint{color:var(--muted);font-size:13px}
@@ -163,7 +186,8 @@ setTimeout(function(){var a=document.getElementById('app');if(a&&/^Loading/.test
 'use strict';
 const CATS=[['elem','Elementary'],['hs','Highschool']];
 const DANCES=[['street','Street Dance'],['pilgrims','Pilgrims Dance']];
-const AWARDS=[['music','Best in Music'],['costume','Best in Costume']];
+const DEF_AWARDS=()=>[{id:'music',n:'Best in Music'},{id:'costume',n:'Best in Costume'}];
+let AWARDS=DEF_AWARDS().map(a=>[a.id,a.n]);
 const ADMIN={u:'admin',p:'0000'};
 
 function defaultCfg(){return{
@@ -191,7 +215,10 @@ function DED(){return[
 function normCfg(c){c=c||{};const dd=defaultCfg().deductions;const d=c.deductions;
   if(Array.isArray(d)){c.deductions={street:JSON.parse(JSON.stringify(d)),pilgrims:JSON.parse(JSON.stringify(d))}}
   else if(!d){c.deductions=dd}else{c.deductions.street=c.deductions.street||dd.street;c.deductions.pilgrims=c.deductions.pilgrims||dd.pilgrims}
-  ['street','pilgrims'].forEach(k=>c.deductions[k].forEach((x,i)=>{if(!x.id)x.id='d'+i}));return c}
+  ['street','pilgrims'].forEach(k=>c.deductions[k].forEach((x,i)=>{if(!x.id)x.id='d'+i}));
+  if(!Array.isArray(c.awards))c.awards=DEF_AWARDS();
+  c.awards.forEach((a,i)=>{if(!a.id)a.id='a'+i});
+  AWARDS=c.awards.map(a=>[a.id,a.n||'Award']);return c}
 
 /* ---------- state ---------- */
 const S={confirm:null,jsc:'elem',jsd:'street',mode:'',cfg:null,judges:{},scores:{},deds:{},awards:{},session:null,cat:'elem',sub:'street',hdr:[null,null,null,null],paper:'a4',atab:'setup',acat:'elem',asub:'street',draft:null,msg:'',ready:false,unsubs:[],pending:{}};
@@ -308,8 +335,8 @@ function viewTitle(){
   if(S.atab==='jsheet')return`Judges Score Sheet · ${catName(S.jsc)} Category · ${SUBN[S.jsd]}`;
   return TABN[S.atab]||''}
 
-function loginView(){return`<div class="login"><div class="panel">
-  <h1>Voyadores Festival Tabulation</h1><div style="margin:0 0 18px"></div>
+function loginView(){return`<div class="loginbg" aria-hidden="true"><i class="s7"></i><i class="s1"></i><i class="s2"></i><i class="s3"></i><i class="s4"></i><i class="s5"></i><i class="s6"></i><i class="s8"></i><i class="s9"></i></div><div class="login"><div class="ina"><svg viewBox="0 0 200 262" role="img" aria-label="Cartoon of Nuestra Señora de Peñafrancia"><g><circle cx="100" cy="64" r="50" fill="#ffc90e" opacity=".3"/><g stroke="#ffc90e" stroke-width="4" stroke-linecap="round"><path d="M100 4v10M100 114v6M40 64h10M150 64h10M57 21l7 7M143 21l-7 7M57 107l7-7M143 107l-7-7"/></g><circle cx="100" cy="64" r="42" fill="none" stroke="#ffc90e" stroke-width="3"/><path d="M100 98C66 108 44 176 34 234H166C156 176 134 108 100 98Z" fill="#f04125"/><path d="M100 98C62 108 38 182 30 234H64C70 178 84 132 100 120C116 132 130 178 136 234H170C162 182 138 108 100 98Z" fill="#432a7a"/><path d="M100 98C62 108 38 182 30 234M100 98C138 108 162 182 170 234M100 120C84 132 70 178 64 234M100 120C116 132 130 178 136 234" fill="none" stroke="#ffc90e" stroke-width="3.5" stroke-linecap="round"/><g fill="#ffc90e"><path d="M100 142l8 10-8 10-8-10z"/><path d="M100 176l9 11-9 11-9-11z"/><path d="M100 208l10 12-10 12-10-12z"/></g><path d="M100 40C80 40 72 58 74 82C76 98 88 104 100 104C112 104 124 98 126 82C128 58 120 40 100 40Z" fill="#4a2c17"/><ellipse cx="100" cy="69" rx="17" ry="21" fill="#f4cfa6"/><circle cx="92.5" cy="67" r="2.3" fill="#2a1b12"/><circle cx="107.5" cy="67" r="2.3" fill="#2a1b12"/><circle cx="88" cy="75" r="4" fill="#f27a6b" opacity=".55"/><circle cx="112" cy="75" r="4" fill="#f27a6b" opacity=".55"/><path d="M93 78Q100 84 107 78" fill="none" stroke="#a5412a" stroke-width="2" stroke-linecap="round"/><path d="M79 46L83 26L92 39L100 19L108 39L117 26L121 46Z" fill="#ffc90e" stroke="#d99a00" stroke-width="2" stroke-linejoin="round"/><g fill="#f04125"><circle cx="83" cy="26" r="3"/><circle cx="100" cy="19" r="3.4"/><circle cx="117" cy="26" r="3"/></g><rect x="79" y="43" width="42" height="6" rx="3" fill="#ffc90e" stroke="#d99a00" stroke-width="1.5"/><path d="M44 150Q58 142 72 150L77 186H40Z" fill="#fecd05" stroke="#d99a00" stroke-width="2" stroke-linejoin="round"/><circle cx="58" cy="136" r="11" fill="#f4cfa6"/><path d="M48 134Q58 122 68 134Q58 128 48 134Z" fill="#4a2c17"/><circle cx="58" cy="136" r="15" fill="none" stroke="#ffc90e" stroke-width="2.5"/><circle cx="54.5" cy="137" r="1.5" fill="#2a1b12"/><circle cx="61.5" cy="137" r="1.5" fill="#2a1b12"/><path d="M55 142Q58 145 61 142" fill="none" stroke="#a5412a" stroke-width="1.5" stroke-linecap="round"/><ellipse cx="82" cy="170" rx="7" ry="5.5" fill="#f4cfa6"/><ellipse cx="118" cy="170" rx="7" ry="5.5" fill="#f4cfa6"/><rect x="18" y="232" width="164" height="20" rx="10" fill="#5ac8c8"/><path d="M30 242q8-6 16 0t16 0 16 0 16 0 16 0 16 0 16 0 16 0" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity=".8"/></g></svg><div class="inacap">Viva la Virgen!</div></div><div class="panel">
+  <h1><span class="w1">Voyadores</span><span class="w2">Festival</span><span class="w3">Tabulation</span></h1>
   <form id="loginForm" class="grid" style="grid-template-columns:1fr">
    <div class="field"><label for="lu">Username</label><input id="lu" autocomplete="username" autocapitalize="off" required></div>
    <div class="field"><label for="lp">Password</label><input id="lp" type="password" autocomplete="current-password" required></div>
@@ -460,6 +487,12 @@ function setupView(){
    <div class="grid"><div class="field" style="grid-column:1/-1"><label for="ev">Event name</label><input id="ev" value="${esc(d.event)}" data-ev></div>
    ${CATS.map(([k,n])=>`<div class="field"><label for="ct-${k}">${n} contingents</label><input type="number" id="ct-${k}" min="0" max="40" value="${d.contingents[k]}" data-ct="${k}"></div>`).join('')}</div></div>
    ${critTable('street')}${critTable('pilgrims')}
+    <div class="panel"><div class="head"><div><h2>Special Awards</h2><p>Each judge ranks every group for each award, 1 being the best. The award with the lowest average rank wins.</p></div></div>
+     ${d.awards.length?`<div class="scroll"><table class="crit bordered"><thead><tr><th>#</th><th style="text-align:left">Award name</th><th></th></tr></thead><tbody>
+     ${d.awards.map((x,i)=>`<tr><td class="num">${i+1}</td><td><input type="text" value="${esc(x.n)}" data-an="${i}" aria-label="Award name"></td><td><button class="btn sm bad" data-act="delaward" data-v="${i}">Remove</button></td></tr>`).join('')}
+     </tbody></table></div>`:'<div class="hint">No special awards. Add one below.</div>'}
+     <p class="hint" style="margin:8px 0">Removing an award also removes the ranks judges already entered for it, once you press Save and publish.</p>
+     <button class="btn sm" data-act="addaward">Add award</button></div>
    <div class="panel"><div class="row"><button class="btn pri" data-act="savecfg">Save and publish to judges</button><span class="hint">Judges see the new score sheet right away. Scores already entered are kept.</span></div>
    <hr style="border:0;border-top:1px solid var(--line);margin:16px 0"><div class="row"><button class="btn bad" data-act="clearscores" id="clearBtn">Clear all scores, ranks and deductions</button><span class="hint">Starts a fresh event. Judge accounts stay.</span></div></div>`}
 function updateSums(){if(!S.draft)return;DANCES.forEach(([k])=>{const e=document.querySelector(`[data-sum="${k}"]`);if(!e)return;const s=S.draft.criteria[k].reduce((a,c)=>a+(+c.max||0),0),w=+S.draft.weights[k]||0;e.textContent=`Total ${s}% of ${w}%`;e.className='pill '+(s===w?'ok':'warn');const sc=document.querySelector(`[data-sumcell="${k}"]`);if(sc)sc.textContent=s+'%'})}
@@ -627,12 +660,18 @@ document.addEventListener('click',async e=>{
   else if(a==='loaddefaults'){await db.doc('config/main').set(defaultCfg());toast('Festival defaults loaded')}
   else if(a==='addcrit'){S.draft.criteria[v].push({n:'New criterion',max:5});render()}
   else if(a==='adddd'){S.draft.deductions[v].push({id:'n'+Date.now().toString(36),n:'New deduction',pts:1});render()}
+  else if(a==='addaward'){S.draft.awards.push({id:'a'+Date.now().toString(36),n:'New award'});render()}
+  else if(a==='delaward'){S.draft.awards.splice(+v,1);render()}
   else if(a==='deldd'){const[k,i]=v.split('|');S.draft.deductions[k].splice(+i,1);render()}
   else if(a==='delcrit'){const[k,i]=v.split('|');S.draft.criteria[k].splice(+i,1);render()}
   else if(a==='savecfg'){
     const d=S.draft;d.weights.street=+d.weights.street||0;d.weights.pilgrims=+d.weights.pilgrims||0;
     ['street','pilgrims'].forEach(k=>{d.criteria[k].forEach(c=>c.max=+c.max||0);d.deductions[k].forEach(x=>x.pts=+x.pts||0)});
     CATS.forEach(([k])=>d.contingents[k]=Math.max(0,Math.min(40,+d.contingents[k]||0)));
+    d.awards=d.awards.map(a=>({id:a.id,n:(a.n||'').trim()||'Award'}));
+    const keep=new Set(d.awards.map(a=>a.id));
+    const gone=Object.keys(S.awards).filter(k=>!keep.has(k.split('__')[2]));
+    await Promise.all(gone.map(k=>db.collection('awards').doc(k).delete()));
     await db.doc('config/main').set(d);toast('Score sheet published to judges')}
   else if(a==='clearscores'){
     if(!t.dataset.armed){t.dataset.armed=1;t.textContent='Press again to confirm. This cannot be undone';setTimeout(()=>{if(t.isConnected){delete t.dataset.armed;t.textContent='Clear all scores, ranks and deductions'}},4000);return}
@@ -690,6 +729,7 @@ document.addEventListener('input',e=>{
     else if(t.dataset.ct)S.draft.contingents[t.dataset.ct]=t.value;
     else if(t.dataset.w){S.draft.weights[t.dataset.w]=t.value;updateSums()}
     else if(t.dataset.cn){const[k,i]=t.dataset.cn.split('|');S.draft.criteria[k][+i].n=t.value}
+    else if(t.dataset.an){S.draft.awards[+t.dataset.an].n=t.value}
     else if(t.dataset.dn){const[k,i]=t.dataset.dn.split('|');S.draft.deductions[k][+i].n=t.value}
     else if(t.dataset.dp){const[k,i]=t.dataset.dp.split('|');S.draft.deductions[k][+i].pts=t.value}
     else if(t.dataset.cm){const[k,i]=t.dataset.cm.split('|');S.draft.criteria[k][+i].max=t.value;updateSums()}
@@ -751,7 +791,8 @@ async function firebaseDb(){
   return{collection:n=>wrapColl(fs.collection(n)),doc:p=>wrapDoc(fs.doc(p))};
 }
 function sheetsDb(url,secret){
-  const cache={},subs=[];let seq=0,timer=null,polling=false,loaded=false;
+  const cache={},subs=[];let seq=0,inflight=0,timer=null,polling=false,loaded=false;
+  const wr=async fn=>{inflight++;try{return await fn()}finally{inflight--;seq++}};
   async function post(body){
     const r=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({secret,...body})});
     const j=await r.json();if(!j.ok)throw new Error(j.error||'request failed');return j}
@@ -768,7 +809,7 @@ function sheetsDb(url,secret){
     try{
       const colls=[...new Set(subs.map(s=>s.coll))];
       const res=await post({op:'dump',colls});
-      if(seq!==start){polling=false;return poll()}   // a write happened meanwhile: refetch
+      if(seq!==start||inflight>0){polling=false;setTimeout(poll,inflight?400:0);return}   // a write is running or just finished: this answer may be stale, refetch
       colls.forEach(c=>cache[c]=res.data[c]||{});loaded=true;notify(false);
     }catch(e){console.warn('poll',e)}
     polling=false}
@@ -778,9 +819,9 @@ function sheetsDb(url,secret){
   const local=(coll,id,fn)=>{seq++;cache[coll]=cache[coll]||{};fn(cache[coll]);notify(false)};
   const docRef=(coll,id)=>({id,
     async get(){const r=await post({op:'get',coll,id});return{id,exists:r.exists,data:()=>r.data||undefined}},
-    async set(v){const d=JSON.parse(JSON.stringify(v));local(coll,id,c=>c[id]=d);await post({op:'set',coll,id,data:d});seq++},
-    async update(v){const d=JSON.parse(JSON.stringify(v));await post({op:'update',coll,id,data:d});local(coll,id,c=>{c[id]=Object.assign(c[id]||{},d)})},
-    async delete(){local(coll,id,c=>{delete c[id]});await post({op:'delete',coll,id});seq++},
+    async set(v){const d=JSON.parse(JSON.stringify(v));local(coll,id,c=>c[id]=d);await wr(()=>post({op:'set',coll,id,data:d}))},
+    async update(v){const d=JSON.parse(JSON.stringify(v));await wr(()=>post({op:'update',coll,id,data:d}));local(coll,id,c=>{c[id]=Object.assign(c[id]||{},d)})},
+    async delete(){local(coll,id,c=>{delete c[id]});await wr(()=>post({op:'delete',coll,id}))},
     async acquire({holder,ttlMs=4000}){const r=await post({op:'acquire',coll,id,holder,ttlMs});return{acquired:r.acquired}},
     onSnapshot(next){return addSub({kind:'doc',coll,id,next,last:undefined})}});
   const query=(coll,flt)=>({
