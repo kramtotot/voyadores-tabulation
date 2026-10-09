@@ -173,7 +173,7 @@ function normCfg(c){c=c||{};const dd=defaultCfg().deductions;const d=c.deduction
   ['street','pilgrims'].forEach(k=>c.deductions[k].forEach((x,i)=>{if(!x.id)x.id='d'+i}));return c}
 
 /* ---------- state ---------- */
-const S={jsc:'elem',jsd:'street',mode:'',cfg:null,judges:{},scores:{},deds:{},awards:{},session:null,cat:'elem',sub:'street',atab:'setup',acat:'elem',asub:'street',draft:null,msg:'',ready:false,unsubs:[],pending:{}};
+const S={confirm:null,jsc:'elem',jsd:'street',mode:'',cfg:null,judges:{},scores:{},deds:{},awards:{},session:null,cat:'elem',sub:'street',atab:'setup',acat:'elem',asub:'street',draft:null,msg:'',ready:false,unsubs:[],pending:{}};
 let db=null;
 const $app=document.getElementById('app');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -230,6 +230,7 @@ function keepAwards(ds){const keep={};Object.keys(S.pending).forEach(k=>{if(S.aw
 function restart(){unsubAll();S.scores={};S.deds={};S.awards={};startCommon();startRole()}
 function checkSession(){
   const s=S.session;
+  if(s&&s.role==='judge'&&S.judges[s.id]){const me=S.judges[s.id];Object.keys(S.scores).forEach(k=>{const dd=S.scores[k]&&S.scores[k].dance;if(dd&&k.startsWith(s.id+'__')&&!does(me,dd)){delete S.scores[k];clearTimeout(timers[k]);delete S.pending[k]}})}
   if(s&&s.role==='judge'&&Object.keys(S.judges).length){
     const j=S.judges[s.id];
     if(!j||j.claimedBy!==device){S.session=null;ls.del('tally.session');S.msg=j?'Admin released this account. Sign in again.':'This judge account no longer exists.';unsubAll();startCommon();render()}
@@ -398,10 +399,30 @@ function setupView(){
    <hr style="border:0;border-top:1px solid var(--line);margin:16px 0"><div class="row"><button class="btn bad" data-act="clearscores" id="clearBtn">Clear all scores, ranks and deductions</button><span class="hint">Starts a fresh event. Judge accounts stay.</span></div></div>`}
 function updateSums(){if(!S.draft)return;DANCES.forEach(([k])=>{const e=document.querySelector(`[data-sum="${k}"]`);if(!e)return;const s=S.draft.criteria[k].reduce((a,c)=>a+(+c.max||0),0),w=+S.draft.weights[k]||0;e.textContent=`Total ${s}% of ${w}%`;e.className='pill '+(s===w?'ok':'warn');const sc=document.querySelector(`[data-sumcell="${k}"]`);if(sc)sc.textContent=s+'%'})}
 
+function jScoreKeys(id,d){return Object.keys(S.scores).filter(k=>k.startsWith(id+'__')&&(!d||(S.scores[k]&&S.scores[k].dance===d)))}
+function countScores(id,d){return jScoreKeys(id,d).reduce((n,k)=>n+Object.values((S.scores[k]||{}).v||{}).reduce((m,row)=>m+Object.keys(row||{}).length,0),0)}
+async function clearJudgeDance(id,d){await Promise.all(jScoreKeys(id,d).map(k=>db.collection('scores').doc(k).delete()))}
+async function releaseJudge(id){
+  const ops=[];
+  jScoreKeys(id).forEach(k=>ops.push(db.collection('scores').doc(k).delete()));
+  Object.keys(S.awards).filter(k=>k.startsWith(id+'__')).forEach(k=>ops.push(db.collection('awards').doc(k).delete()));
+  ops.push(db.collection('judges').doc(id).update({claimedBy:null,claimedAt:null,fullName:''}));
+  await Promise.all(ops);toast('Released. Scores and name cleared.');render()}
+async function setAssign(id,d,on){
+  if(!on)await clearJudgeDance(id,d);
+  await db.collection('judges').doc(id).update({[d]:on});
+  toast(on?'Saved':`${SUBN[d]} scores cleared and judge unassigned`);render()}
+async function applyAssign(ns,np){
+  await Promise.all(judgeList().map(async j=>{const st=j.n<=ns,pl=j.n<=np;
+    if(!st&&does(j,'street'))await clearJudgeDance(j.id,'street');
+    if(!pl&&does(j,'pilgrims'))await clearJudgeDance(j.id,'pilgrims');
+    await db.collection('judges').doc(j.id).update({street:st,pilgrims:pl})}));
+  toast(`${ns} judges on Street Dance, ${np} on Pilgrims Dance`);render()}
 function judgesView(){
   const js=judgeList();
   const prog=j=>{if(!S.cfg)return'';return''};
-  return`<div class="panel"><div class="head"><div><h2>Judge accounts</h2><p>Each account locks to the first device that signs in, even after sign out. Release it so someone else can use it.</p></div>
+  const cf=S.confirm?`<div class="msg warn" style="margin:0 0 14px"><b>${esc(S.confirm.text)}</b><div class="row" style="margin-top:10px"><button class="btn bad" data-act="confirmyes">Clear scores and continue</button><button class="btn" data-act="confirmno">Cancel</button></div></div>`:'';
+  return`${cf}<div class="panel"><div class="head"><div><h2>Judge accounts</h2><p>Each account locks to the first device that signs in, even after sign out. Releasing an account also clears that judge's scores and name, so the next person starts with a blank sheet.</p></div>
     <div class="row"><div class="field" style="width:110px"><label for="jn">Judges</label><input type="number" id="jn" min="1" max="30" value="${Math.max(js.length,5)}"></div><button class="btn pri" data-act="makejudges" style="align-self:end">Create accounts</button></div></div>
   ${js.length?`<div class="row" style="margin:0 0 14px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface2)"><div class="field" style="width:160px"><label for="ns">Street Dance judges</label><input type="number" id="ns" min="0" max="30" value="${js.filter(j=>does(j,'street')).length}"></div><div class="field" style="width:160px"><label for="np">Pilgrims Dance judges</label><input type="number" id="np" min="0" max="30" value="${js.filter(j=>does(j,'pilgrims')).length}"></div><button class="btn pri" data-act="applycounts" style="align-self:end">Apply</button><span class="hint" style="flex:1;min-width:220px">Judges are assigned in order. 3 and 9 means Judge1 to Judge3 score both dances and Judge4 to Judge9 score Pilgrims Dance only. Tick the boxes below to pick different judges.</span></div>
   <div class="scroll"><table><thead><tr><th>#</th><th>Name</th><th>Username</th><th>Password</th><th>Street Dance</th><th>Pilgrims Dance</th><th>Status</th><th>Scores entered</th><th></th></tr></thead><tbody>
@@ -525,7 +546,7 @@ document.addEventListener('click',async e=>{
   const a=t.dataset.act,v=t.dataset.v;
   if(a==='cat'){S.cat=v;render()}
   else if(a==='sub'){S.sub=v;render()}
-  else if(a==='atab'){S.atab=v;S.msg='';render()}
+  else if(a==='atab'){S.atab=v;S.msg='';S.confirm=null;render()}
   else if(a==='asub'){S.asub=v;render()}
   else if(a==='jsc'){S.jsc=v;render()}
   else if(a==='jsd'){S.jsd=v;render()}
@@ -553,9 +574,16 @@ document.addEventListener('click',async e=>{
     const extra=have.filter(j=>j.n>n);
     S.msg=extra.length?`${extra.length} account(s) above ${n} were kept. Delete them below if you do not need them.`:'';
     toast(`${n} judge accounts ready`);render()}
-  else if(a==='applycounts'){const ns=Math.max(0,+document.getElementById('ns').value||0),np=Math.max(0,+document.getElementById('np').value||0);
-    await Promise.all(judgeList().map(j=>db.collection('judges').doc(j.id).update({street:j.n<=ns,pilgrims:j.n<=np})));toast(`${ns} judges on Street Dance, ${np} on Pilgrims Dance`)}
-  else if(a==='release'){await db.collection('judges').doc(v).update({claimedBy:null,claimedAt:null});toast('Released. The username can be used again.')}
+  else if(a==='applycounts'){
+    const ns=Math.max(0,+document.getElementById('ns').value||0),np=Math.max(0,+document.getElementById('np').value||0);
+    const loss=[];judgeList().forEach(j=>{[['street',ns],['pilgrims',np]].forEach(([d,n])=>{if(j.n>n&&does(j,d)){const c=countScores(j.id,d);if(c)loss.push(`${jlabel(j)} ${SUBN[d]} (${c})`)}})});
+    if(loss.length){S.confirm={text:`Applying this clears scores already entered: ${loss.join(', ')}.`,run:()=>applyAssign(ns,np)};render()}
+    else await applyAssign(ns,np)}
+  else if(a==='confirmyes'){const f=S.confirm&&S.confirm.run;S.confirm=null;render();if(f)await f()}
+  else if(a==='confirmno'){S.confirm=null;render()}
+  else if(a==='release'){
+    if(!t.dataset.armed){t.dataset.armed=1;t.textContent='Clear scores & release';setTimeout(()=>{if(t.isConnected){delete t.dataset.armed;t.textContent='Release'}},4000);return}
+    await releaseJudge(v)}
   else if(a==='deljudge'){
     if(!t.dataset.armed){t.dataset.armed=1;t.textContent='Confirm';setTimeout(()=>{if(t.isConnected){delete t.dataset.armed;t.textContent='Delete'}},3000);return}
     await db.collection('judges').doc(v).delete();toast('Judge deleted')}
@@ -565,6 +593,7 @@ document.addEventListener('input',e=>{
   const t=e.target;
   if(t.dataset.cell){
     const[g,ci]=t.dataset.cell.split('|');const c=S.cat,d=S.sub,j=S.session.id,max=+t.dataset.max;
+    if(!does(S.judges[j]||{},d))return;
     let val=t.value===''?null:+t.value;
     if(val!==null&&(val<0||val>max||isNaN(val))){t.classList.add('bad');return}
     t.classList.remove('bad');
@@ -604,7 +633,9 @@ document.addEventListener('change',async e=>{
     const cellEl=document.querySelector(`[data-dt="${c}|${d}|${g}"]`);if(cellEl)cellEl.textContent=dedPts(c,d,+g)||'';
     await db.collection('deductions').doc(id).set(doc);toast('Deduction saved');
   }
-  else if(t.dataset.jdance){const[id,d]=t.dataset.jdance.split('|');await db.collection('judges').doc(id).update({[d]:t.checked});toast('Saved')}
+  else if(t.dataset.jdance){const[id,d]=t.dataset.jdance.split('|');const on=t.checked;
+    if(!on){const n=countScores(id,d);if(n>0){t.checked=true;const j=S.judges[id]||{};S.confirm={text:`${jlabel(j)} has ${n} ${SUBN[d]} score${n>1?'s':''} entered. Unassigning clears them.`,run:()=>setAssign(id,d,false)};render();return}}
+    await setAssign(id,d,on)}
   else if(t.dataset.jname!==undefined){
     const val=t.value.trim();await db.collection('judges').doc(S.session.id).update({fullName:val});toast('Name saved')}
   else if(t.dataset.ju||t.dataset.jp){
