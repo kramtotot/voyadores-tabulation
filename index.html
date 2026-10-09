@@ -145,6 +145,8 @@ td input.bad{border-color:var(--bad);background:var(--bad-soft)}
 .pv-row{display:grid;grid-template-columns:2fr repeat(5,1fr) 1fr;border:1px solid #888;border-top:0;height:2.2cqw}
 .pv-row:first-child{border-top:1px solid #888;background:#ddd}
 .pv-row i{border-left:1px solid #888}.pv-row i:first-child{border-left:0}
+.appfoot{text-align:center;font-size:12px;color:var(--muted);margin:32px 0 0;padding:10px 0}
+.appfoot.loginfoot{position:relative;z-index:1;margin:14px 0 0;color:#d9ccf5;padding:10px}
 .netbar{position:sticky;top:0;z-index:30;margin:0 -16px;padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top,0px));font-size:14px;font-weight:600;text-align:center}
 .netbar.off{background:#f04125;color:#fff}.netbar.sync{background:#ffc90e;color:#2a1d00}
 .shell{display:grid;grid-template-columns:190px minmax(0,1fr);gap:20px;align-items:start}
@@ -165,6 +167,7 @@ td input.bad{border-color:var(--bad);background:var(--bad-soft)}
   body::before{display:none}
   .side{display:none!important}.shell{display:block}
   .netbar{display:none!important}
+  .appfoot{display:block!important;position:fixed;left:0;right:0;bottom:0;margin:0;padding:0;font-size:10px;color:#000!important;text-align:center}
   .bar,.tabs,.no-print,.toast,.btn,.msg{display:none!important}
   .print-only{display:block!important}
   .print-only.sig{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
@@ -350,7 +353,8 @@ function render(){
     ${S.mode==='local'?'<div class="msg warn" style="margin:0 0 14px">Demo mode: scores stay in this browser only. Connect Google Sheets (or Firebase) to share scores between judges.</div>':''}
     ${s.role==='admin'?adminView():judgeView()}
     ${s.role==='admin'&&(S.atab==='elem'||S.atab==='hs')?`<div class="print-only sig">${judgeList().map(j=>`<div>${esc(j.fullName||j.username)}<br>Judge ${j.n}</div>`).join('')}<div>Tabulator</div></div>`:''}
-    ${s.role==='judge'?`<div class="print-only sig"><div>${esc(me.fullName||me.username||'')}<br>Judge signature</div></div>`:''}`;
+    ${s.role==='judge'?`<div class="print-only sig"><div>${esc(me.fullName||me.username||'')}<br>Judge signature</div></div>`:''}
+    <footer class="appfoot">© ${new Date().getFullYear()} Zara Tabulation Team</footer>`;
 }
 function exportBtns(s){
   if(S.mode==='claude')return'';
@@ -374,7 +378,7 @@ function loginView(){return`<div class="loginbg" aria-hidden="true"><i class="s7
    <button class="btn pri" type="submit" id="lbtn">Sign in</button></form>
   ${S.msg?`<div class="msg bad">${esc(S.msg)}</div>`:window.__net&&window.__net.offline?`<div class="msg warn">You are offline. Judges already signed in on this device can continue, and scores update the tally when you are back online.</div>`:window.__dbErr?`<div class="msg bad">Database problem: ${esc(window.__dbErr)}</div>`:''}
   ${S.mode==='local'?'<div class="msg warn">Demo mode: data stays in this browser only.</div>':''}
-  <p class="hint" style="margin-bottom:0">A judge account works on one device only. If you are locked out, ask the tabulator to release it.</p></div></div>`}
+  <p class="hint" style="margin-bottom:0">A judge account works on one device only. If you are locked out, ask the tabulator to release it.</p></div></div><footer class="appfoot loginfoot">© ${new Date().getFullYear()} Zara Tabulation Team</footer>`}
 
 /* ---- judge ---- */
 function judgeView(){
@@ -650,6 +654,7 @@ async function downloadPdf(){
   if(S.session.role==='admin'&&(S.atab==='elem'||S.atab==='hs'))sign(judgeList().map(j=>[j.fullName||j.username,'Judge '+j.n]).concat([['','Tabulator']]));
   if(S.session.role==='judge')sign([[(me&&(me.fullName||me.username))||'','Judge signature']]);
   const fn='Voyadores-Tally-'+clean(viewTitle()).replace(/[^A-Za-z0-9]+/g,'-').replace(/^-|-$/g,'')+'.pdf';
+  {const n=doc.getNumberOfPages(),yr=new Date().getFullYear();for(let i=1;i<=n;i++){doc.setPage(i);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(90);doc.text('\u00A9 '+yr+' Zara Tabulation Team',W/2,H-14,{align:'center'})}}
   doc.save(fn);toast('PDF downloaded')}
 
 /* ---------- events ---------- */
