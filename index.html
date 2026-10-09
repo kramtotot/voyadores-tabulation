@@ -422,7 +422,7 @@ function judgesView(){
   const js=judgeList();
   const prog=j=>{if(!S.cfg)return'';return''};
   const cf=S.confirm?`<div class="msg warn" style="margin:0 0 14px"><b>${esc(S.confirm.text)}</b><div class="row" style="margin-top:10px"><button class="btn bad" data-act="confirmyes">Clear scores and continue</button><button class="btn" data-act="confirmno">Cancel</button></div></div>`:'';
-  return`${cf}<div class="panel"><div class="head"><div><h2>Judge accounts</h2><p>Each account locks to the first device that signs in, even after sign out. Releasing an account also clears that judge's scores and name, so the next person starts with a blank sheet.</p></div>
+  return`${cf}<div class="panel"><div class="head"><div><h2>Judge accounts</h2><p>Each account locks to the first device that signs in, even after sign out. <b>Release</b> lets another device sign in and keeps the scores, for example when a phone dies. <b>Release &amp; clear</b> also removes the judge's scores and name, so a new person starts with a blank sheet.</p></div>
     <div class="row"><div class="field" style="width:110px"><label for="jn">Judges</label><input type="number" id="jn" min="1" max="30" value="${Math.max(js.length,5)}"></div><button class="btn pri" data-act="makejudges" style="align-self:end">Create accounts</button></div></div>
   ${js.length?`<div class="row" style="margin:0 0 14px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface2)"><div class="field" style="width:160px"><label for="ns">Street Dance judges</label><input type="number" id="ns" min="0" max="30" value="${js.filter(j=>does(j,'street')).length}"></div><div class="field" style="width:160px"><label for="np">Pilgrims Dance judges</label><input type="number" id="np" min="0" max="30" value="${js.filter(j=>does(j,'pilgrims')).length}"></div><button class="btn pri" data-act="applycounts" style="align-self:end">Apply</button><span class="hint" style="flex:1;min-width:220px">Judges are assigned in order. 3 and 9 means Judge1 to Judge3 score both dances and Judge4 to Judge9 score Pilgrims Dance only. Tick the boxes below to pick different judges.</span></div>
   <div class="scroll"><table><thead><tr><th>#</th><th>Name</th><th>Username</th><th>Password</th><th>Street Dance</th><th>Pilgrims Dance</th><th>Status</th><th>Scores entered</th><th></th></tr></thead><tbody>
@@ -431,7 +431,7 @@ function judgesView(){
    <td><input type="checkbox" ${does(j,'street')?'checked':''} data-jdance="${j.id}|street" aria-label="Judge ${j.n} scores Street Dance"></td><td><input type="checkbox" ${does(j,'pilgrims')?'checked':''} data-jdance="${j.id}|pilgrims" aria-label="Judge ${j.n} scores Pilgrims Dance"></td>
    <td>${j.claimedBy?'<span class="pill bad">In use</span>':'<span class="pill ok">Available</span>'}</td>
    <td class="num">${scoresEntered(j.id)}</td>
-   <td><div class="row" style="justify-content:center"><button class="btn sm" data-act="release" data-v="${j.id}" ${j.claimedBy?'':'disabled'}>Release</button><button class="btn sm bad" data-act="deljudge" data-v="${j.id}">Delete</button></div></td></tr>`).join('')}</tbody></table></div>
+   <td><div class="row" style="justify-content:center"><button class="btn sm" data-act="releasekeep" data-v="${j.id}" ${j.claimedBy?'':'disabled'} title="Let another device sign in. Scores and name are kept.">Release</button><button class="btn sm bad" data-act="release" data-v="${j.id}" title="Let another device sign in and clear this judge's scores and name.">Release &amp; clear</button><button class="btn sm bad" data-act="deljudge" data-v="${j.id}">Delete</button></div></td></tr>`).join('')}</tbody></table></div>
   <p class="hint">Judges with a box unticked do not see that dance and are left out of its average. Default logins are Judge1 with 1111, Judge2 with 2222, and so on. Edit a field and leave it to save.</p>`:`<div class="empty">No judge accounts yet. Enter how many judges can join and press Create accounts.</div>`}</div>
   ${S.msg?`<div class="msg warn">${esc(S.msg)}</div>`:''}`}
 function scoresEntered(id){if(!S.cfg)return'';let f=0,t=0;CATS.forEach(([c])=>DANCES.forEach(([d])=>{if(!does(S.judges[id]||{},d))return;for(let g=1;g<=nG(c);g++)crit(d).forEach((_,ci)=>{t++;if(cell(id,c,d,g,ci)!==null)f++})}));return`${f} / ${t}`}
@@ -581,8 +581,9 @@ document.addEventListener('click',async e=>{
     else await applyAssign(ns,np)}
   else if(a==='confirmyes'){const f=S.confirm&&S.confirm.run;S.confirm=null;render();if(f)await f()}
   else if(a==='confirmno'){S.confirm=null;render()}
+  else if(a==='releasekeep'){await db.collection('judges').doc(v).update({claimedBy:null,claimedAt:null});toast('Released. Scores and name kept.');render()}
   else if(a==='release'){
-    if(!t.dataset.armed){t.dataset.armed=1;t.textContent='Clear scores & release';setTimeout(()=>{if(t.isConnected){delete t.dataset.armed;t.textContent='Release'}},4000);return}
+    if(!t.dataset.armed){t.dataset.armed=1;t.textContent='Press again to clear';setTimeout(()=>{if(t.isConnected){delete t.dataset.armed;t.textContent='Release & clear'}},4000);return}
     await releaseJudge(v)}
   else if(a==='deljudge'){
     if(!t.dataset.armed){t.dataset.armed=1;t.textContent='Confirm';setTimeout(()=>{if(t.isConnected){delete t.dataset.armed;t.textContent='Delete'}},3000);return}
