@@ -158,6 +158,9 @@ td input.bad{border-color:var(--bad);background:var(--bad-soft)}
 .side button[aria-current="page"]{background:var(--navy);color:var(--navy-ink);border-left-color:var(--gold)}
 .main{min-width:0}
 @media (max-width:760px){.shell{grid-template-columns:1fr;gap:12px}.side{position:static;flex-direction:row;padding:6px}.side .sl{display:none}.side button{justify-content:center;padding:9px 8px}}
+.shareopt{display:inline-flex;align-items:center;gap:8px;margin-left:8px;padding:7px 14px;border:1px dashed var(--navy);border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;color:var(--ink)}
+.shareopt input{width:18px;height:18px;accent-color:var(--navy);margin:0}
+.tab.finaltab{text-transform:uppercase;letter-spacing:.04em;font-size:14px}
 @media (max-width:560px){.panel{padding:12px}th,td{padding:6px}}
 @media (prefers-reduced-motion:no-preference){.tab,.btn{transition:background .12s,border-color .12s}}
 @media print{
@@ -242,7 +245,7 @@ function normCfg(c){c=c||{};const dd=defaultCfg().deductions;const d=c.deduction
   AWARDS=c.awards.map(a=>[a.id,a.n||'Award']);return c}
 
 /* ---------- state ---------- */
-const S={confirm:null,jsc:'elem',jsd:'street',mode:'',cfg:null,judges:{},scores:{},deds:{},awards:{},session:null,cat:'elem',sub:'street',hdr:[null,null,null,null],paper:'a4',archive:{},sumYear:null,atab:'setup',acat:'elem',asub:'street',draft:null,msg:'',ready:false,unsubs:[],pending:{}};
+const S={confirm:null,jsc:'elem',jsd:'street',mode:'',cfg:null,judges:{},scores:{},deds:{},awards:{},session:null,cat:'elem',sub:'street',hdr:[null,null,null,null],paper:'a4',archive:{},sumYear:null,share:{on:false},atab:'setup',acat:'elem',asub:'street',draft:null,msg:'',ready:false,unsubs:[],pending:{}};
 let db=null;
 const $app=document.getElementById('app');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -295,6 +298,7 @@ function startCommon(){
   S.unsubs.push(db.doc('config/main').onSnapshot(s=>{S.cfg=s.exists?normCfg(s.data()):null;S.draft=null;softRender()},e=>console.warn(e)));
   [1,2,3,4].forEach(i=>S.unsubs.push(db.doc('config/hdr'+i).onSnapshot(s=>{const d=s.exists?s.data():null;S.hdr[i-1]=d&&d.d?d:null;softRender()},e=>console.warn(e))));
   S.unsubs.push(db.doc('config/paper').onSnapshot(s=>{const d=s.exists?s.data():null;S.paper=d&&d.size==='long'?'long':'a4';softRender()},e=>console.warn(e)));
+  S.unsubs.push(db.doc('config/share').onSnapshot(s=>{S.share=s.exists?s.data():{on:false};if(!S.share)S.share={on:false};softRender()},e=>console.warn(e)));
   watchColl('judges',ds=>{S.judges={};ds.forEach(d=>S.judges[d.id]={...d.data,id:d.id});checkSession()});
 }
 function startRole(){
@@ -304,6 +308,7 @@ function startRole(){
     watchColl('deductions',ds=>{S.deds={};ds.forEach(d=>S.deds[d.id]=d.data)});
     watchColl('awards',ds=>{keepAwards(ds)});
     watchColl('archive',ds=>{S.archive={};ds.forEach(d=>S.archive[d.id]=d.data)});
+    shareLast='';{const tm=setInterval(syncShare,2500);S.unsubs.push(()=>clearInterval(tm))}
   }else{
     const id=s.id;
     watchColl('scores',ds=>{keepPending(ds)},c=>c.where('judge','==',id));
@@ -366,6 +371,7 @@ const TABN={summary:'Summary',setup:'Tabulation Setup',printing:'Printing Setup'
 const SUBN={street:'Street Dance',pilgrims:'Pilgrims Dance',overall:'Overall Scores',awards:'Special Awards',deds:'Deductions'};
 function viewTitle(){
   const s=S.session;if(!s)return'';
+  if(s.role==='judge'&&S.cat==='final')return'Overall Final Score';
   if(s.role==='judge')return`${catName(S.cat)} Category · ${SUBN[S.sub]}`;
   if(S.atab==='elem'||S.atab==='hs')return`${TABN[S.atab]} · ${SUBN[S.asub]}`;
   if(S.atab==='summary')return`Summary · ${S.sumYear||''}`;
@@ -390,11 +396,12 @@ function judgeView(){
   const subs=[['street','Street Dance'],['pilgrims','Pilgrims Dance'],['overall','Overall Scores'],['awards','Special Awards']].filter(x=>!['street','pilgrims'].includes(x[0])||does(me0,x[0]));
   if(!subs.some(x=>x[0]===S.sub))S.sub=subs[0][0];
   const sub=S.sub;
+  const shareOn=sharedOn();if(S.cat==='final'&&!shareOn)S.cat='elem';
   const me=S.judges[j]||{};
   return`<div class="panel no-print" style="margin-bottom:16px"><div class="row"><div class="field" style="flex:1;min-width:230px"><label for="jname">Your name</label><input id="jname" data-jname value="${esc(me.fullName||'')}" placeholder="Type your full name" autocomplete="name"></div><span class="hint" style="flex:2;min-width:220px">${me.fullName?'Saved. Your name appears on the printed score sheet.':'Enter your name so the tabulator can identify your score sheet.'}</span></div></div>
-  <div class="tabs" role="tablist">${CATS.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${S.cat===k}" data-act="cat" data-v="${k}">${n} Category</button>`).join('')}</div>
-  <div class="tabs sub" role="tablist">${subs.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${sub===k}" data-act="sub" data-v="${k}">${n}</button>`).join('')}</div>
-  ${sub==='street'||sub==='pilgrims'?judgeSheet(j,S.cat,sub):sub==='overall'?judgeOverall(j,S.cat):judgeAwards(j,S.cat)}`}
+  <div class="tabs" role="tablist">${CATS.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${S.cat===k}" data-act="cat" data-v="${k}">${n} Category</button>`).join('')}${shareOn?`<button class="tab finaltab" role="tab" aria-selected="${S.cat==='final'}" data-act="cat" data-v="final">Overall Final Score</button>`:''}</div>
+  ${S.cat==='final'?finalView():`<div class="tabs sub" role="tablist">${subs.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${sub===k}" data-act="sub" data-v="${k}">${n}</button>`).join('')}</div>
+  ${sub==='street'||sub==='pilgrims'?judgeSheet(j,S.cat,sub):sub==='overall'?judgeOverall(j,S.cat):judgeAwards(j,S.cat)}`}`}
 
 function judgeSheet(j,c,d){
   const cr=crit(d),n=nG(c),w=S.cfg.weights[d];
@@ -442,7 +449,7 @@ function adminView(){
   return`<div class="shell"><nav class="side" aria-label="Sections"><div class="sl">Menu</div>
     <button data-act="sect" data-v="setup" ${sect==='setup'?'aria-current="page"':''}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Setup</button>
     <button data-act="sect" data-v="scores" ${sect==='scores'?'aria-current="page"':''}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>Scores</button>
-    <button data-act="sect" data-v="summary" ${sect==='summary'?'aria-current="page"':''}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Summary</button></nav><div class="main">${sect==='summary'?summaryView():`<div class="tabs" role="tablist">${tabs.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${S.atab===k}" data-act="atab" data-v="${k}">${n}</button>`).join('')}</div>
+    <button data-act="sect" data-v="summary" ${sect==='summary'?'aria-current="page"':''}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Summary</button></nav><div class="main">${sect==='summary'?summaryView():`<div class="tabs" role="tablist">${tabs.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${S.atab===k}" data-act="atab" data-v="${k}">${n}</button>`).join('')}${sect==='scores'?`<label class="shareopt"><input type="checkbox" data-share ${S.share&&S.share.on?'checked':''}> Share Overall Scores</label>`:''}</div>
   ${S.atab==='setup'?setupView():S.atab==='printing'?printingView():S.atab==='judges'?judgesView():!S.cfg?`<div class="panel empty">Load the score sheet in Tabulation Setup first.</div>`:S.atab==='jsheet'?jsheetView():catAdmin(S.atab)}`}</div></div>`}
 
 function hdrHtml(cls){const im=S.hdr.filter(Boolean);if(!im.length)return'';
@@ -515,6 +522,22 @@ function summaryView(){
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));align-items:start">${(k.awards||[]).map(w=>`<div><h3 style="font-size:16px;margin-bottom:8px">${esc(w.n)}${winnersOf(w.rows)?` · <span class="mono">${esc(winnersOf(w.rows))}</span>`:''}</h3><div class="scroll"><table><thead><tr><th>Group</th><th>Average rank</th><th>Result</th></tr></thead><tbody>
     ${w.rows.map(r=>`<tr class="${r.rank===1?'r1':''}"><td>Group ${r.g}</td><td class="num">${r.avg===null?'':fmt(r.avg)}</td><td class="rank">${r.rank?`<b>${r.rank}</b>`:''}</td></tr>`).join('')}</tbody></table></div></div>`).join('')}</div></div>`};
   return top+all+head+CATS.map(cat).join('')}
+/* ---------- share overall scores ---------- */
+function sharedOn(){return !!(S.share&&S.share.on&&S.share.cats)}
+function shareSnapshot(){const q=n=>Math.round((+n||0)*100)/100,cats={};
+  CATS.forEach(([c])=>{cats[c]=overall(c).map(r=>({g:r.g,street:q(r.street),pilgrims:q(r.pilgrims),total:q(r.total),rank:r.rank}))});
+  return{on:true,cats,weights:{...S.cfg.weights}}}
+let shareLast='';
+function syncShare(){
+  if(!S.session||S.session.role!=='admin'||!S.share||!S.share.on||!S.cfg)return;
+  const snap=shareSnapshot(),sg=JSON.stringify(snap);if(sg===shareLast)return;shareLast=sg;
+  db.doc('config/share').set({...snap,at:Date.now()}).catch(e=>{console.warn(e);shareLast=''})}
+function finalView(){
+  const w=S.share.weights||S.cfg&&S.cfg.weights||{street:40,pilgrims:60};
+  return CATS.map(([c,cn])=>{const rows=(S.share.cats||{})[c]||[];
+    return`<div class="panel"><div class="head"><div><h2>${cn} · Overall final score</h2><p class="no-print">Street Dance plus Pilgrims Dance, after deductions. Shared by the tabulator.</p></div><span class="pill">${w.street+w.pilgrims}% total</span></div>
+    <div class="scroll"><table><thead><tr><th>Group</th><th>Street Dance (${w.street}%)</th><th>Pilgrims Dance (${w.pilgrims}%)</th><th>Overall</th><th>Rank</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr class="${r.rank===1&&r.total>0?'r1':''}"><td>Group ${r.g}</td><td class="num">${r.street?fmt(r.street):''}</td><td class="num">${r.pilgrims?fmt(r.pilgrims):''}</td><td class="tot num">${r.total?fmt(r.total):''}</td><td class="rank">${r.total?`<b>${r.rank}</b>`:''}</td></tr>`).join('')}</tbody></table></div></div>`}).join('')}
 function jlabel(j){return j.fullName||j.username}
 function jsheetView(){
   const c=S.jsc,d=S.jsd,js=judgeList().filter(j=>d==='awards'||does(j,d));
@@ -844,6 +867,14 @@ document.addEventListener('input',e=>{
 
 document.addEventListener('change',async e=>{
   const t=e.target;
+  if(t.dataset.share!==undefined){
+    if(t.checked&&!S.cfg){t.checked=false;toast('Load the score sheet first');return}
+    const on=t.checked;S.share={...(S.share||{}),on};
+    try{
+      if(on){const snap=shareSnapshot();shareLast=JSON.stringify(snap);await db.doc('config/share').set({...snap,at:Date.now()});toast('Overall scores shared with judges')}
+      else{shareLast='';await db.doc('config/share').set({on:false});toast('Sharing stopped')}
+    }catch(err){console.warn(err);toast('Could not update sharing. Try again.')}
+    return}
   if(t.id==='hdrfile'){const f=t.files&&t.files[0];const i=S.hslot;t.value='';if(!f||i==null)return;
     try{const o=await compressImg(f);S.hdr[i]=o;S.msg='';render();await db.doc('config/hdr'+(i+1)).set(o);toast('Image '+(i+1)+' saved')}
     catch(err){console.warn(err);S.msg='That image could not be used. Try a PNG or JPG file.';render()}
