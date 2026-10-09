@@ -113,8 +113,10 @@ td input.bad{border-color:var(--bad);background:var(--bad-soft)}
   .panel{border:0;padding:0;border-radius:0}
   .panel+.panel{margin-top:14px}
   .scroll{overflow:visible;border:0}
-  table{font-size:11px}
-  th,td{border:1px solid #888;padding:4px 6px}
+  table{font-size:10px;width:100%}
+  th,td{border:1px solid #888;padding:3px 4px}
+  th{word-break:normal;overflow-wrap:normal;hyphens:none;font-size:9px}
+  td.num,td.tot,td.rank{white-space:nowrap}
   th:first-child,td:first-child{position:static}
   th{min-width:0}
   tr{break-inside:avoid}
@@ -258,7 +260,7 @@ function render(){
   const ev=S.cfg?S.cfg.event:'Street and Pilgrims Dance Competition';
   $app.innerHTML=`<div class="bar"><div class="brand"><b>Voyadores Tally</b><span>${esc(ev)}</span></div>
     <span class="chip"><i></i>${esc(who)}</span><span class="hint" id="savedAt"></span>
-    ${S.mode!=='claude'?'<button class="btn" data-act="print">Download / Print</button>':''}
+    ${exportBtns(s)}
     <button class="btn" data-act="logout">Sign out</button></div>
     <div class="print-only print-head"><b>${esc(ev)}</b><div>${esc(viewTitle())}</div>${me&&me.fullName?`<div>Judge: ${esc(me.fullName)}</div>`:''}<div>Printed ${esc(new Date().toLocaleString())}</div></div>
     ${S.mode==='local'?'<div class="msg warn" style="margin:0 0 14px">Demo mode: scores stay in this browser only. Connect Google Sheets (or Firebase) to share scores between judges.</div>':''}
@@ -266,6 +268,11 @@ function render(){
     ${s.role==='admin'&&(S.atab==='elem'||S.atab==='hs')?`<div class="print-only sig">${judgeList().map(j=>`<div>${esc(j.fullName||j.username)}<br>Judge ${j.n}</div>`).join('')}<div>Tabulator</div></div>`:''}
     ${s.role==='judge'?`<div class="print-only sig"><div>${esc(me.fullName||me.username||'')}<br>Judge signature</div></div>`:''}`;
 }
+function exportBtns(s){
+  if(S.mode==='claude')return'';
+  if(s.role==='judge')return'<button class="btn" data-act="download">Download</button>';
+  if(['elem','hs','jsheet'].includes(S.atab)&&S.cfg)return'<button class="btn" data-act="download">Download</button><button class="btn" data-act="print">Print</button>';
+  return''}
 const TABN={setup:'Tabulation Setup',judges:'Judges Setup',elem:'Elementary Category',hs:'Highschool Category',jsheet:'Judges Score Sheet'};
 const SUBN={street:'Street Dance',pilgrims:'Pilgrims Dance',overall:'Overall Scores',awards:'Special Awards',deds:'Deductions'};
 function viewTitle(){
@@ -299,7 +306,7 @@ function judgeView(){
 
 function judgeSheet(j,c,d){
   const cr=crit(d),n=nG(c),w=S.cfg.weights[d];
-  let h=`<div class="panel"><div class="head"><div><h2>${catName(c)} · ${DANCES.find(x=>x[0]===d)[1]}</h2><p>Enter your score for each criterion. Half points are allowed. Scores save automatically.</p></div><span class="pill">${w}% of total</span></div>
+  let h=`<div class="panel"><div class="head"><div><h2>${catName(c)} · ${DANCES.find(x=>x[0]===d)[1]}</h2><p class="no-print">Enter your score for each criterion. Half points are allowed. Scores save automatically.</p></div><span class="pill">${w}% of total</span></div>
   <div class="scroll"><table data-sheet="${c}|${d}"><thead><tr><th>Group</th>${cr.map(x=>`<th>${esc(x.n)} <span class="mono">(${x.max}%)</span></th>`).join('')}<th>Final Score<br><span class="mono">/ ${maxTotal(d)}</span></th><th>Rank</th></tr></thead><tbody>`;
   for(let g=1;g<=n;g++){
     h+=`<tr data-g="${g}"><td>Group ${g}</td>${cr.map((x,ci)=>{const v=cell(j,c,d,g,ci);return`<td><input type="number" inputmode="decimal" min="0" max="${x.max}" step="0.5" value="${v===null?'':v}" data-cell="${g}|${ci}" data-max="${x.max}" aria-label="Group ${g}, ${esc(x.n)}"></td>`}).join('')}<td class="tot num" data-tot></td><td class="rank" data-rank></td></tr>`}
@@ -318,13 +325,13 @@ function judgeOverall(j,c){
   const n=nG(c);const rows=[];
   for(let g=1;g<=n;g++){const s=judgeTotal(j,c,'street',g),p=judgeTotal(j,c,'pilgrims',g);rows.push({g,s,p,t:(s===null&&p===null)?null:(s||0)+(p||0)})}
   const all=rows.filter(r=>r.t!==null).map(r=>r.t);
-  return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Overall Scores</h2><p>Your own Street Dance and Pilgrims Dance scores added together. Contingent deductions are applied by the tabulator.</p></div><span class="pill">100% total</span></div>
+  return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Overall Scores</h2><p class="no-print">Your own Street Dance and Pilgrims Dance scores added together. Contingent deductions are applied by the tabulator.</p></div><span class="pill">100% total</span></div>
   <div class="scroll"><table><thead><tr><th>Group</th><th>Street Dance<br><span class="mono">/ ${maxTotal('street')}</span></th><th>Pilgrims Dance<br><span class="mono">/ ${maxTotal('pilgrims')}</span></th><th>Overall<br><span class="mono">/ ${maxTotal('street')+maxTotal('pilgrims')}</span></th><th>Rank</th></tr></thead><tbody>
   ${rows.map(r=>`<tr class="${r.t!==null&&rankIn(all,r.t)===1?'r1':''}"><td>Group ${r.g}</td><td class="num">${r.s===null?'':fmt(r.s)}</td><td class="num">${r.p===null?'':fmt(r.p)}</td><td class="tot num">${r.t===null?'':fmt(r.t)}</td><td class="rank">${r.t===null?'':`<b>${rankIn(all,r.t)}</b>`}</td></tr>`).join('')}</tbody></table></div></div>`}
 
 function judgeAwards(j,c){
   const n=nG(c);
-  return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Special Awards</h2><p>Rank every group from 1 (best) to ${n}. Each rank can be used once per award.</p></div></div>
+  return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Special Awards</h2><p class="no-print">Rank every group from 1 (best) to ${n}. Each rank can be used once per award.</p></div></div>
   <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));align-items:start">
   ${AWARDS.map(([a,name])=>{const ranks=[];for(let g=1;g<=n;g++)ranks.push(awardRank(j,c,a,g));
     return`<div><h3 style="font-size:16px;margin-bottom:8px">${name}</h3><div class="scroll"><table><thead><tr><th>Group</th><th>Your rank</th></tr></thead><tbody>
@@ -410,19 +417,19 @@ function catAdmin(c){
 
 function adminDance(c,d){
   const cr=crit(d),rows=table(c,d),js=judgeList();
-  return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Score sheet overall, ${DANCES.find(x=>x[0]===d)[1]}</h2><p>Criterion scores are the average of all judges who scored them. Deductions come off the sum.</p></div><span class="pill">${S.cfg.weights[d]}% of total score</span></div>
+  return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Score sheet overall, ${DANCES.find(x=>x[0]===d)[1]}</h2><p class="no-print">Criterion scores are the average of all judges who scored them. Deductions come off the sum.</p></div><span class="pill">${S.cfg.weights[d]}% of total score</span></div>
   <div class="scroll"><table><thead><tr><th>Group</th>${cr.map(x=>`<th>${esc(x.n)} <span class="mono">(${x.max}%)</span></th>`).join('')}<th>Deductions</th><th>Final Score <span class="mono">(${S.cfg.weights[d]}%)</span></th><th>Rank</th>${js.map(j=>`<th>${esc(j.username)}</th>`).join('')}</tr></thead><tbody>
   ${rows.map(r=>`<tr class="${r.rank===1&&r.final>0?'r1':''}"><td>Group ${r.g}</td>${r.avgs.map(v=>`<td class="num">${v?fmt(v):''}</td>`).join('')}<td class="num">${r.ded?'−'+fmt(r.ded):''}</td><td class="tot num">${r.final?fmt(r.final):''}</td><td class="rank">${r.final?`<b>${r.rank}</b>`:''}</td>${js.map(j=>{const t=judgeTotal(j.id,c,d,r.g);return`<td class="num">${t===null?'':fmt(t)}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>
-  <div class="legend"><span>Judge columns show each judge's own total out of ${maxTotal(d)}, before deductions.</span></div></div>`}
+  <div class="legend no-print"><span>Judge columns show each judge's own total out of ${maxTotal(d)}, before deductions.</span></div></div>`}
 
 function adminOverall(c){
   const rows=overall(c);
-  return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Overall score</h2><p>Street Dance plus Pilgrims Dance, after deductions.</p></div><span class="pill">${S.cfg.weights.street+S.cfg.weights.pilgrims}% total</span></div>
+  return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Overall score</h2><p class="no-print">Street Dance plus Pilgrims Dance, after deductions.</p></div><span class="pill">${S.cfg.weights.street+S.cfg.weights.pilgrims}% total</span></div>
   <div class="scroll"><table><thead><tr><th>Group</th><th>Street Dance (${S.cfg.weights.street}%)</th><th>Pilgrims Dance (${S.cfg.weights.pilgrims}%)</th><th>Overall</th><th>Rank</th></tr></thead><tbody>
   ${rows.map(r=>`<tr class="${r.rank===1&&r.total>0?'r1':''}"><td>Group ${r.g}</td><td class="num">${r.street?fmt(r.street):''}</td><td class="num">${r.pilgrims?fmt(r.pilgrims):''}</td><td class="tot num">${r.total?fmt(r.total):''}</td><td class="rank">${r.total?`<b>${r.rank}</b>`:''}</td></tr>`).join('')}</tbody></table></div></div>`}
 
 function adminAwards(c){
-  return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Special awards</h2><p>Judges rank each group. The group with the lowest average rank places first.</p></div></div>
+  return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Special awards</h2><p class="no-print">Judges rank each group. The group with the lowest average rank places first.</p></div></div>
   <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));align-items:start">${AWARDS.map(([a,name])=>{const rows=awardTable(c,a);
   return`<div><h3 style="font-size:16px;margin-bottom:8px">${name}</h3><div class="scroll"><table><thead><tr><th>Group</th><th>Judges ranked</th><th>Rank total</th><th>Average rank</th><th>Result</th></tr></thead><tbody>
   ${rows.map(r=>`<tr class="${r.rank===1?'r1':''}"><td>Group ${r.g}</td><td class="num">${r.n}</td><td class="num">${r.n?r.sum:''}</td><td class="num">${r.avg===null?'':fmt(r.avg)}</td><td class="rank">${r.rank?`<b>${r.rank}</b>`:''}</td></tr>`).join('')}</tbody></table></div></div>`}).join('')}</div></div>`}
@@ -431,10 +438,54 @@ function adminDeds(c){
   return DANCES.map(([d,dn])=>{
     const items=S.cfg.deductions[d]||[];
     const m=(S.deds[`${c}__${d}`]||{}).d||{};
-    return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Deductions, ${dn}</h2><p>Tick every rule a contingent broke. Points come off its ${dn} final score.</p></div></div>
+    return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Deductions, ${dn}</h2><p class="no-print">Tick every rule a contingent broke. Points come off its ${dn} final score.</p></div></div>
     <div class="scroll"><table class="ded"><thead><tr><th>Group</th>${items.map((x,i)=>`<th title="${esc(x.n)}">${i+1}<br><span class="mono">${x.pts?x.pts+' pt'+(x.pts>1?'s':''):'Forfeit'}</span></th>`).join('')}<th>Total</th></tr></thead><tbody>
     ${Array.from({length:nG(c)},(_,k)=>k+1).map(g=>`<tr><td>Group ${g}</td>${items.map((x,i)=>`<td><input type="checkbox" ${(m[g]||{})[x.id]?'checked':''} data-ded="${c}|${d}|${g}|${x.id}" aria-label="Group ${g}: ${esc(x.n)}"></td>`).join('')}<td class="num tot" data-dt="${c}|${d}|${g}">${dedPts(c,d,g)||''}</td></tr>`).join('')}</tbody></table></div>
     <div class="legend">${items.map((x,i)=>`<span><b class="mono">${i+1}</b> ${esc(x.n)}</span>`).join('')}</div></div>`}).join('')}
+
+/* ---------- PDF download ---------- */
+function loadLib(src){return new Promise((res,rej)=>{const e=document.createElement('script');e.src=src;e.onload=res;e.onerror=()=>rej(new Error('load '+src));document.head.appendChild(e)})}
+async function pdfLibs(){
+  if(!(window.jspdf&&window.jspdf.jsPDF))await loadLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  if(!(window.jspdf&&window.jspdf.jsPDF.API.autoTable))await loadLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js')}
+async function downloadPdf(){
+  try{await pdfLibs()}catch(e){console.warn(e);toast('Could not load the PDF tool. Check your connection.');return}
+  const {jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'landscape',unit:'pt',format:'a4'});
+  const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=32;
+  const clean=t=>String(t||'').replace(/−/g,'-').replace(/\s+/g,' ').trim();
+  const ev=S.cfg?S.cfg.event:'Street and Pilgrims Dance Competition';
+  const me=S.session.role==='judge'?(S.judges[S.session.id]||{}):null;
+  let y=M,first=true;
+  const head=()=>{doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text(clean(ev),M,y);y+=15;
+    doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text(clean(viewTitle()),M,y);y+=13;
+    if(me&&me.fullName){doc.text('Judge: '+clean(me.fullName),M,y);y+=13}
+    doc.setFontSize(8);doc.text('Printed '+new Date().toLocaleString(),M,y);y+=6;
+    doc.setLineWidth(1);doc.line(M,y,W-M,y);y+=14};
+  const sign=names=>{if(y>H-70){doc.addPage();y=M}y+=30;const n=names.length,gap=18,w=(W-2*M-gap*(n-1))/n;
+    doc.setFont('helvetica','normal');doc.setFontSize(9);names.forEach((nm,i)=>{const x=M+i*(w+gap);doc.line(x,y,x+w,y);doc.text(clean(nm[0]),x+w/2,y+11,{align:'center'});doc.text(nm[1],x+w/2,y+22,{align:'center'})});y+=34};
+  head();
+  const panels=[...document.querySelectorAll('#app .panel')].filter(p=>p.querySelector('table')&&!p.classList.contains('no-print'));
+  panels.forEach((pan,pi)=>{
+    if(pan.classList.contains('jsheet')&&!first){doc.addPage();y=M;head()}
+    const h2=pan.querySelector('.head h2'),sub=pan.querySelector('.head p:not(.no-print)');
+    if(h2){if(y>H-90){doc.addPage();y=M}doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text(clean(h2.textContent),M,y);y+=13}
+    if(sub){doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.text(clean(sub.textContent),M,y);y+=10}
+    pan.querySelectorAll('table').forEach(tb=>{
+      const t=tb.closest('div:not(.scroll)')?.querySelector('h3');
+      if(t&&pan.querySelectorAll('table').length>1){doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text(clean(t.textContent),M,y+8);y+=14}
+      doc.autoTable({html:tb,startY:y+4,theme:'grid',margin:{left:M,right:M,top:M,bottom:M},
+        styles:{fontSize:8,cellPadding:3,halign:'center',valign:'middle',lineColor:[120,120,120],lineWidth:.4,textColor:0},
+        headStyles:{fillColor:[225,225,225],textColor:0,fontStyle:'bold'},footStyles:{fillColor:[240,240,240],textColor:0},
+        columnStyles:{0:{halign:'left',fontStyle:'bold',cellWidth:46,minCellWidth:46}},
+        didParseCell:d=>{const el=d.cell.raw;if(el&&el.querySelector){const inp=el.querySelector('input');if(inp)d.cell.text=[inp.type==='checkbox'?(inp.checked?'X':''):inp.value]}
+          d.cell.text=d.cell.text.map(x=>String(x).replace(/−/g,'-').replace(/\s+/g,' ').trim())}});
+      y=doc.lastAutoTable.finalY+12});
+    if(pan.classList.contains('jsheet')){const j=pan.querySelector('.head h2').textContent;sign([[j,'Judge signature']])}
+    first=false});
+  if(S.session.role==='admin'&&(S.atab==='elem'||S.atab==='hs'))sign(judgeList().map(j=>[j.fullName||j.username,'Judge '+j.n]).concat([['','Tabulator']]));
+  if(S.session.role==='judge')sign([[(me&&(me.fullName||me.username))||'','Judge signature']]);
+  const fn='Voyadores-Tally-'+clean(viewTitle()).replace(/[^A-Za-z0-9]+/g,'-').replace(/^-|-$/g,'')+'.pdf';
+  doc.save(fn);toast('PDF downloaded')}
 
 /* ---------- events ---------- */
 document.addEventListener('submit',async e=>{
@@ -471,6 +522,7 @@ document.addEventListener('click',async e=>{
   else if(a==='asub'){S.asub=v;render()}
   else if(a==='jsc'){S.jsc=v;render()}
   else if(a==='jsd'){S.jsd=v;render()}
+  else if(a==='download'){await downloadPdf()}
   else if(a==='print'){const old=document.title;document.title='Voyadores Tally - '+viewTitle();const back=()=>{document.title=old;window.removeEventListener('afterprint',back)};window.addEventListener('afterprint',back);window.print()}
   else if(a==='logout'){S.session=null;ls.del('tally.session');S.msg='';unsubAll();S.scores={};S.deds={};S.awards={};startCommon();render()}
   else if(a==='loaddefaults'){await db.doc('config/main').set(defaultCfg());toast('Festival defaults loaded')}
