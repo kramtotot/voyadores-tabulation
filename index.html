@@ -188,13 +188,14 @@ const nG=c=>Math.max(0,+(S.cfg&&S.cfg.contingents[c])||0);
 const crit=d=>S.cfg.criteria[d]||[];
 const maxTotal=d=>crit(d).reduce((a,c)=>a+(+c.max||0),0);
 const judgeList=()=>Object.values(S.judges).sort((a,b)=>a.n-b.n);
+const does=(j,d)=>d==='street'?j.street!==false:d==='pilgrims'?j.pilgrims!==false:true;
 function rankIn(vals,v){return 1+vals.filter(x=>r2(x)>r2(v)).length}
 
 /* ---------- scoring ---------- */
 const sid=(j,c,d)=>`${j}__${c}__${d}`;
 function cell(j,c,d,g,ci){const doc=S.scores[sid(j,c,d)];const v=doc&&doc.v&&doc.v[g]&&doc.v[g][ci];return v===undefined||v===null||v===''?null:+v}
 function judgeTotal(j,c,d,g){let t=0,any=false;crit(d).forEach((_,ci)=>{const v=cell(j,c,d,g,ci);if(v!==null){t+=v;any=true}});return any?t:null}
-function avgCrit(c,d,g,ci){const vs=judgeList().map(j=>cell(j.id,c,d,g,ci)).filter(v=>v);return vs.length?vs.reduce((a,b)=>a+b,0)/vs.length:0}
+function avgCrit(c,d,g,ci){const vs=judgeList().filter(j=>does(j,d)).map(j=>cell(j.id,c,d,g,ci)).filter(v=>v);return vs.length?vs.reduce((a,b)=>a+b,0)/vs.length:0}
 function dedPts(c,d,g){const m=(S.deds[`${c}__${d}`]||{}).d||{};const row=m[g]||{};return (S.cfg.deductions[d]||[]).reduce((a,it)=>a+(row[it.id]?(+it.pts||0):0),0)}
 function danceFinal(c,d,g){const sub=crit(d).reduce((a,_,ci)=>a+avgCrit(c,d,g,ci),0);return{sub,ded:dedPts(c,d,g),final:Math.max(0,sub-dedPts(c,d,g))}}
 function table(c,d){const rows=[];for(let g=1;g<=nG(c);g++){const f=danceFinal(c,d,g);rows.push({g,avgs:crit(d).map((_,ci)=>avgCrit(c,d,g,ci)),...f})}const all=rows.map(r=>r.final);rows.forEach(r=>r.rank=rankIn(all,r.final));return rows}
@@ -296,8 +297,10 @@ function loginView(){return`<div class="login"><div class="panel">
 function judgeView(){
   if(!S.cfg)return`<div class="panel empty">The tabulator has not published a score sheet yet.</div>`;
   const j=S.session.id;
+  const me0=S.judges[j]||{};
+  const subs=[['street','Street Dance'],['pilgrims','Pilgrims Dance'],['overall','Overall Scores'],['awards','Special Awards']].filter(x=>!['street','pilgrims'].includes(x[0])||does(me0,x[0]));
+  if(!subs.some(x=>x[0]===S.sub))S.sub=subs[0][0];
   const sub=S.sub;
-  const subs=[['street','Street Dance'],['pilgrims','Pilgrims Dance'],['overall','Overall Scores'],['awards','Special Awards']];
   const me=S.judges[j]||{};
   return`<div class="panel no-print" style="margin-bottom:16px"><div class="row"><div class="field" style="flex:1;min-width:230px"><label for="jname">Your name</label><input id="jname" data-jname value="${esc(me.fullName||'')}" placeholder="Type your full name" autocomplete="name"></div><span class="hint" style="flex:2;min-width:220px">${me.fullName?'Saved. Your name appears on the printed score sheet.':'Enter your name so the tabulator can identify your score sheet.'}</span></div></div>
   <div class="tabs" role="tablist">${CATS.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${S.cat===k}" data-act="cat" data-v="${k}">${n} Category</button>`).join('')}</div>
@@ -322,12 +325,14 @@ function refreshSheet(c,d){
   t.querySelectorAll('tbody tr').forEach((tr,i)=>{const v=tots[i];const rk=tr.querySelector('[data-rank]');rk.innerHTML=v===null?'':`<b>${rankIn(filled,v)}</b>`;tr.classList.toggle('r1',v!==null&&rankIn(filled,v)===1)})}
 
 function judgeOverall(j,c){
-  const n=nG(c);const rows=[];
-  for(let g=1;g<=n;g++){const s=judgeTotal(j,c,'street',g),p=judgeTotal(j,c,'pilgrims',g);rows.push({g,s,p,t:(s===null&&p===null)?null:(s||0)+(p||0)})}
+  const me=S.judges[j]||{};const n=nG(c);const rows=[];
+  const hS=does(me,'street'),hP=does(me,'pilgrims');
+  for(let g=1;g<=n;g++){const st=hS?judgeTotal(j,c,'street',g):null,pl=hP?judgeTotal(j,c,'pilgrims',g):null;rows.push({g,s:st,p:pl,t:(st===null&&pl===null)?null:(st||0)+(pl||0)})}
   const all=rows.filter(r=>r.t!==null).map(r=>r.t);
-  return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Overall Scores</h2><p class="no-print">Your own Street Dance and Pilgrims Dance scores added together. Contingent deductions are applied by the tabulator.</p></div><span class="pill">100% total</span></div>
-  <div class="scroll"><table><thead><tr><th>Group</th><th>Street Dance<br><span class="mono">/ ${maxTotal('street')}</span></th><th>Pilgrims Dance<br><span class="mono">/ ${maxTotal('pilgrims')}</span></th><th>Overall<br><span class="mono">/ ${maxTotal('street')+maxTotal('pilgrims')}</span></th><th>Rank</th></tr></thead><tbody>
-  ${rows.map(r=>`<tr class="${r.t!==null&&rankIn(all,r.t)===1?'r1':''}"><td>Group ${r.g}</td><td class="num">${r.s===null?'':fmt(r.s)}</td><td class="num">${r.p===null?'':fmt(r.p)}</td><td class="tot num">${r.t===null?'':fmt(r.t)}</td><td class="rank">${r.t===null?'':`<b>${rankIn(all,r.t)}</b>`}</td></tr>`).join('')}</tbody></table></div></div>`}
+  const mx=(hS?maxTotal('street'):0)+(hP?maxTotal('pilgrims'):0);
+  return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Overall Scores</h2><p class="no-print">Your own scores added together. Contingent deductions are applied by the tabulator.</p></div></div>
+  <div class="scroll"><table><thead><tr><th>Group</th>${hS?`<th>Street Dance<br><span class="mono">/ ${maxTotal('street')}</span></th>`:''}${hP?`<th>Pilgrims Dance<br><span class="mono">/ ${maxTotal('pilgrims')}</span></th>`:''}<th>Overall<br><span class="mono">/ ${mx}</span></th><th>Rank</th></tr></thead><tbody>
+  ${rows.map(r=>`<tr class="${r.t!==null&&rankIn(all,r.t)===1?'r1':''}"><td>Group ${r.g}</td>${hS?`<td class="num">${r.s===null?'':fmt(r.s)}</td>`:''}${hP?`<td class="num">${r.p===null?'':fmt(r.p)}</td>`:''}<td class="tot num">${r.t===null?'':fmt(r.t)}</td><td class="rank">${r.t===null?'':`<b>${rankIn(all,r.t)}</b>`}</td></tr>`).join('')}</tbody></table></div></div>`}
 
 function judgeAwards(j,c){
   const n=nG(c);
@@ -347,11 +352,11 @@ function adminView(){
 
 function jlabel(j){return j.fullName||j.username}
 function jsheetView(){
-  const c=S.jsc,d=S.jsd,js=judgeList();
+  const c=S.jsc,d=S.jsd,js=judgeList().filter(j=>d==='awards'||does(j,d));
   const dances=[['street','Street Dance'],['pilgrims','Pilgrims Dance'],['awards','Special Awards']];
   return`<div class="tabs sub no-print" role="tablist">${CATS.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${c===k}" data-act="jsc" data-v="${k}">${n} Category</button>`).join('')}</div>
   <div class="tabs sub no-print" role="tablist">${dances.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${d===k}" data-act="jsd" data-v="${k}">${n}</button>`).join('')}</div>
-  ${js.length?js.map(j=>d==='awards'?jsAwards(j,c):jsSheet(j,c,d)).join(''):'<div class="panel empty">No judges yet. Create accounts in Judges Setup.</div>'}`}
+  ${js.length?js.map(j=>d==='awards'?jsAwards(j,c):jsSheet(j,c,d)).join(''):'<div class="panel empty">No judges assigned to this dance. Set this in Judges Setup.</div>'}`}
 function jsSheet(j,c,d){
   const cr=crit(d),n=nG(c);const tots=[];for(let g=1;g<=n;g++)tots.push(judgeTotal(j.id,c,d,g));
   const filled=tots.filter(v=>v!==null);
@@ -398,15 +403,17 @@ function judgesView(){
   const prog=j=>{if(!S.cfg)return'';return''};
   return`<div class="panel"><div class="head"><div><h2>Judge accounts</h2><p>Each account locks to the first device that signs in, even after sign out. Release it so someone else can use it.</p></div>
     <div class="row"><div class="field" style="width:110px"><label for="jn">Judges</label><input type="number" id="jn" min="1" max="30" value="${Math.max(js.length,5)}"></div><button class="btn pri" data-act="makejudges" style="align-self:end">Create accounts</button></div></div>
-  ${js.length?`<div class="scroll"><table><thead><tr><th>#</th><th>Name</th><th>Username</th><th>Password</th><th>Status</th><th>Scores entered</th><th></th></tr></thead><tbody>
+  ${js.length?`<div class="row" style="margin:0 0 14px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface2)"><div class="field" style="width:160px"><label for="ns">Street Dance judges</label><input type="number" id="ns" min="0" max="30" value="${js.filter(j=>does(j,'street')).length}"></div><div class="field" style="width:160px"><label for="np">Pilgrims Dance judges</label><input type="number" id="np" min="0" max="30" value="${js.filter(j=>does(j,'pilgrims')).length}"></div><button class="btn pri" data-act="applycounts" style="align-self:end">Apply</button><span class="hint" style="flex:1;min-width:220px">Judges are assigned in order. 3 and 9 means Judge1 to Judge3 score both dances and Judge4 to Judge9 score Pilgrims Dance only. Tick the boxes below to pick different judges.</span></div>
+  <div class="scroll"><table><thead><tr><th>#</th><th>Name</th><th>Username</th><th>Password</th><th>Street Dance</th><th>Pilgrims Dance</th><th>Status</th><th>Scores entered</th><th></th></tr></thead><tbody>
   ${js.map(j=>`<tr><td>${j.n}</td><td style="text-align:left">${j.fullName?esc(j.fullName):'<span class="hint">not entered</span>'}</td><td><input class="jin" type="text" value="${esc(j.username)}" data-ju="${j.id}" style="width:130px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 8px" aria-label="Username for judge ${j.n}"></td>
    <td><input class="jin" type="text" value="${esc(j.password)}" data-jp="${j.id}" style="width:100px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 8px" aria-label="Password for judge ${j.n}"></td>
+   <td><input type="checkbox" ${does(j,'street')?'checked':''} data-jdance="${j.id}|street" aria-label="Judge ${j.n} scores Street Dance"></td><td><input type="checkbox" ${does(j,'pilgrims')?'checked':''} data-jdance="${j.id}|pilgrims" aria-label="Judge ${j.n} scores Pilgrims Dance"></td>
    <td>${j.claimedBy?'<span class="pill bad">In use</span>':'<span class="pill ok">Available</span>'}</td>
    <td class="num">${scoresEntered(j.id)}</td>
    <td><div class="row" style="justify-content:center"><button class="btn sm" data-act="release" data-v="${j.id}" ${j.claimedBy?'':'disabled'}>Release</button><button class="btn sm bad" data-act="deljudge" data-v="${j.id}">Delete</button></div></td></tr>`).join('')}</tbody></table></div>
-  <p class="hint">Default logins are Judge1 with 1111, Judge2 with 2222, and so on. Edit a field and leave it to save.</p>`:`<div class="empty">No judge accounts yet. Enter how many judges can join and press Create accounts.</div>`}</div>
+  <p class="hint">Judges with a box unticked do not see that dance and are left out of its average. Default logins are Judge1 with 1111, Judge2 with 2222, and so on. Edit a field and leave it to save.</p>`:`<div class="empty">No judge accounts yet. Enter how many judges can join and press Create accounts.</div>`}</div>
   ${S.msg?`<div class="msg warn">${esc(S.msg)}</div>`:''}`}
-function scoresEntered(id){if(!S.cfg)return'';let f=0,t=0;CATS.forEach(([c])=>DANCES.forEach(([d])=>{for(let g=1;g<=nG(c);g++)crit(d).forEach((_,ci)=>{t++;if(cell(id,c,d,g,ci)!==null)f++})}));return`${f} / ${t}`}
+function scoresEntered(id){if(!S.cfg)return'';let f=0,t=0;CATS.forEach(([c])=>DANCES.forEach(([d])=>{if(!does(S.judges[id]||{},d))return;for(let g=1;g<=nG(c);g++)crit(d).forEach((_,ci)=>{t++;if(cell(id,c,d,g,ci)!==null)f++})}));return`${f} / ${t}`}
 
 function catAdmin(c){
   const subs=[['street','Street Dance (40%)'],['pilgrims','Pilgrims Dance (60%)'],['overall','Overall'],['awards','Special Awards'],['deds','Deductions']];
@@ -416,7 +423,7 @@ function catAdmin(c){
   ${sub==='street'||sub==='pilgrims'?adminDance(c,sub):sub==='overall'?adminOverall(c):sub==='awards'?adminAwards(c):adminDeds(c)}`}
 
 function adminDance(c,d){
-  const cr=crit(d),rows=table(c,d),js=judgeList();
+  const cr=crit(d),rows=table(c,d),js=judgeList().filter(j=>does(j,d));
   return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Score sheet overall, ${DANCES.find(x=>x[0]===d)[1]}</h2><p class="no-print">Criterion scores are the average of all judges who scored them. Deductions come off the sum.</p></div><span class="pill">${S.cfg.weights[d]}% of total score</span></div>
   <div class="scroll"><table><thead><tr><th>Group</th>${cr.map(x=>`<th>${esc(x.n)} <span class="mono">(${x.max}%)</span></th>`).join('')}<th>Deductions</th><th>Final Score <span class="mono">(${S.cfg.weights[d]}%)</span></th><th>Rank</th>${js.map(j=>`<th>${esc(j.username)}</th>`).join('')}</tr></thead><tbody>
   ${rows.map(r=>`<tr class="${r.rank===1&&r.final>0?'r1':''}"><td>Group ${r.g}</td>${r.avgs.map(v=>`<td class="num">${v?fmt(v):''}</td>`).join('')}<td class="num">${r.ded?'−'+fmt(r.ded):''}</td><td class="tot num">${r.final?fmt(r.final):''}</td><td class="rank">${r.final?`<b>${r.rank}</b>`:''}</td>${js.map(j=>{const t=judgeTotal(j.id,c,d,r.g);return`<td class="num">${t===null?'':fmt(t)}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>
@@ -542,10 +549,12 @@ document.addEventListener('click',async e=>{
   else if(a==='makejudges'){
     const n=Math.max(1,Math.min(30,+document.getElementById('jn').value||0));
     const have=judgeList();
-    const jobs=[];for(let i=1;i<=n;i++){const id='j'+i;if(!S.judges[id])jobs.push(db.collection('judges').doc(id).set({n:i,username:'Judge'+i,password:String(i).repeat(4),claimedBy:null}))}await Promise.all(jobs);
+    const jobs=[];for(let i=1;i<=n;i++){const id='j'+i;if(!S.judges[id])jobs.push(db.collection('judges').doc(id).set({n:i,username:'Judge'+i,password:String(i).repeat(4),claimedBy:null,street:true,pilgrims:true}))}await Promise.all(jobs);
     const extra=have.filter(j=>j.n>n);
     S.msg=extra.length?`${extra.length} account(s) above ${n} were kept. Delete them below if you do not need them.`:'';
     toast(`${n} judge accounts ready`);render()}
+  else if(a==='applycounts'){const ns=Math.max(0,+document.getElementById('ns').value||0),np=Math.max(0,+document.getElementById('np').value||0);
+    await Promise.all(judgeList().map(j=>db.collection('judges').doc(j.id).update({street:j.n<=ns,pilgrims:j.n<=np})));toast(`${ns} judges on Street Dance, ${np} on Pilgrims Dance`)}
   else if(a==='release'){await db.collection('judges').doc(v).update({claimedBy:null,claimedAt:null});toast('Released. The username can be used again.')}
   else if(a==='deljudge'){
     if(!t.dataset.armed){t.dataset.armed=1;t.textContent='Confirm';setTimeout(()=>{if(t.isConnected){delete t.dataset.armed;t.textContent='Delete'}},3000);return}
@@ -595,6 +604,7 @@ document.addEventListener('change',async e=>{
     const cellEl=document.querySelector(`[data-dt="${c}|${d}|${g}"]`);if(cellEl)cellEl.textContent=dedPts(c,d,+g)||'';
     await db.collection('deductions').doc(id).set(doc);toast('Deduction saved');
   }
+  else if(t.dataset.jdance){const[id,d]=t.dataset.jdance.split('|');await db.collection('judges').doc(id).update({[d]:t.checked});toast('Saved')}
   else if(t.dataset.jname!==undefined){
     const val=t.value.trim();await db.collection('judges').doc(S.session.id).update({fullName:val});toast('Name saved')}
   else if(t.dataset.ju||t.dataset.jp){
