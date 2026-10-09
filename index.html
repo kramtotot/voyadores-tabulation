@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>html{color-scheme:light dark}body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Voyadores Tally Tabulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: sticky app bar, primary category tabs, secondary sheet tabs, scrollable score tables. Navy river-blue with marigold highlight. */
+:root{
+  --bg:#edf0f5; --surface:#ffffff; --surface2:#f4f6fa; --line:#d5dbe6;
+  --ink:#14203a; --muted:#5a6781; --navy:#1d3a73; --navy-ink:#ffffff;
+  --gold:#e0a21b; --gold-soft:#fbf0d3; --gold-ink:#6b4a00;
+  --ok:#1b7a4b; --ok-soft:#dff3e8; --warn:#9a6200; --warn-soft:#fdf0d2; --bad:#b3261e; --bad-soft:#fbe3e0;
+  --f-display:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+  --f-body:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0d1424; --surface:#151e33; --surface2:#1b2640; --line:#2b3857;
+  --ink:#e8edf8; --muted:#97a4c2; --navy:#7aa2f0; --navy-ink:#0b1426;
+  --gold:#f0b83a; --gold-soft:#3a2f12; --gold-ink:#f6d98a;
+  --ok:#5fd29a; --ok-soft:#12362a; --warn:#f0b83a; --warn-soft:#3a2f12; --bad:#ff8f86; --bad-soft:#431c19; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d1424; --surface:#151e33; --surface2:#1b2640; --line:#2b3857;
+  --ink:#e8edf8; --muted:#97a4c2; --navy:#7aa2f0; --navy-ink:#0b1426;
+  --gold:#f0b83a; --gold-soft:#3a2f12; --gold-ink:#f6d98a;
+  --ok:#5fd29a; --ok-soft:#12362a; --warn:#f0b83a; --warn-soft:#3a2f12; --bad:#ff8f86; --bad-soft:#431c19; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;padding-inline:16px;padding-block:0 48px}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+button,input,select{font:inherit;color:inherit}
+.wrap{max-width:1180px;margin-inline:auto}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-block:12px;border-bottom:1px solid var(--line);margin-bottom:18px}
+.brand{display:flex;flex-direction:column;min-width:0;flex:1 1 220px}
+.brand b{font-family:var(--f-display);font-size:19px;font-weight:800}
+.brand span{font-size:12px;color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px;font-size:13px}
+.chip i{width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 14px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--navy)}
+.btn.pri{background:var(--navy);color:var(--navy-ink);border-color:var(--navy)}
+.btn.gold{background:var(--gold);color:#2a1d00;border-color:var(--gold)}
+.btn.bad{color:var(--bad);border-color:var(--bad)}
+.btn.sm{padding:3px 10px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:default}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px}
+.tab{border:1px solid transparent;background:transparent;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:600;color:var(--muted)}
+.tab[aria-selected="true"]{background:var(--navy);color:var(--navy-ink)}
+.tab:not([aria-selected="true"]):hover{border-color:var(--line);color:var(--ink)}
+.tabs.sub .tab{padding:6px 14px;font-size:14px;border-radius:999px}
+.tabs.sub .tab[aria-selected="true"]{background:var(--gold);color:#2a1d00}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
+.panel+.panel{margin-top:16px}
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.head h2{font-size:20px}
+.head p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.pill{font-family:var(--f-mono);font-size:12px;font-weight:600;border-radius:999px;padding:2px 10px;background:var(--gold-soft);color:var(--gold-ink)}
+.pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.bad{background:var(--bad-soft);color:var(--bad)} .pill.warn{background:var(--warn-soft);color:var(--warn)}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:center;vertical-align:middle}
+th{background:var(--surface2);font-weight:600;font-size:12px;line-height:1.25;min-width:96px}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--surface2);z-index:1;min-width:84px}
+td:first-child{font-weight:600;background:var(--surface)}
+tbody tr:last-child td{border-bottom:0}
+td.num,.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+td.tot{font-weight:600;background:var(--surface2)}
+td.rank b{display:inline-block;min-width:28px;border-radius:6px;padding:1px 6px;background:var(--surface2);font-family:var(--f-mono)}
+tr.r1 td.rank b{background:var(--gold);color:#2a1d00}
+td input[type=number]{width:72px;text-align:center;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 4px;font-family:var(--f-mono)}
+td input.bad{border-color:var(--bad);background:var(--bad-soft)}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.field input[type=text],.field input[type=password],.field input[type=number],.field input:not([type]){border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 10px;min-width:0;width:100%}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.crit td:first-child{background:var(--surface)}
+.crit input[type=text]{width:100%;min-width:180px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 8px;text-align:left}
+.crit input[type=number]{width:76px}
+.login{max-width:420px;margin:8vh auto 0}
+.login .panel{padding:26px}
+.login h1{font-size:30px;font-weight:800;margin-bottom:4px}
+.msg{padding:10px 12px;border-radius:8px;font-size:14px;margin-top:12px}
+.msg.bad{background:var(--bad-soft);color:var(--bad)} .msg.ok{background:var(--ok-soft);color:var(--ok)} .msg.warn{background:var(--warn-soft);color:var(--warn)}
+.hint{color:var(--muted);font-size:13px}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+.ded td:not(:first-child){padding:4px}
+.ded input[type=checkbox]{width:18px;height:18px;accent-color:var(--navy)}
+.legend{display:grid;gap:4px;font-size:13px;color:var(--muted);margin-top:10px}
+.mono{font-family:var(--f-mono)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:14px;z-index:9}
+@media (max-width:560px){.panel{padding:12px}th,td{padding:6px}}
+@media (prefers-reduced-motion:no-preference){.tab,.btn{transition:background .12s,border-color .12s}}
+</style>
+
+</head>
+<body>
+<div class="wrap" id="app"><div class="empty">Loading tabulator…</div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+'use strict';
+const CATS=[['elem','Elementary'],['hs','High School']];
+const DANCES=[['street','Street Dance'],['pilgrims','Pilgrims Dance']];
+const AWARDS=[['music','Best in Music'],['costume','Best in Costume']];
+const ADMIN={u:'admin',p:'0000'};
+
+function defaultCfg(){return{
+  event:'Peñafrancia Voyadores Festival Street and Pilgrims Dance Competition 2026',
+  weights:{street:40,pilgrims:60},
+  contingents:{elem:7,hs:7},
+  criteria:{
+    street:[['Faithfulness to the Theme & Peñafrancia Devotion',10],['Choreography & Street Dance Execution',10],['Musicality, Rhythm, and Coordination',8],['Costume, Visual Impact, and Overall Presentation',6],['Energy, Discipline, Formation, and Audience Engagement',6]].map(([n,max])=>({n,max})),
+    pilgrims:[['Spiritual Interpretation & Devotional Impact',20],['Choreography, Storytelling, & Artistic Interpretation',15],['Technical Performance & Execution',10],['Musical Composition & Dramatic Integration',8],['Costume, Production Design, & Visual Excellence',7]].map(([n,max])=>({n,max}))
+  },
+  deductions:[
+    ['Insufficient number of performers (less than 60), or exceeding the maximum (over 100)',1],
+    ['Inclusion of students below Grade 2 in the elementary category',1],
+    ['Exceeding the allowable number of props bearers (over 50) or non-compliance with eligible roles',1],
+    ['Exceeding the maximum 10-minute allocation, including entrance, set-up and exit',1],
+    ['Execution of prohibited movements (e.g., acrobatics, being thrown into the air)',1],
+    ['Use of the actual image of INA on costumes, props, or sets',1],
+    ['Personification of INA (e.g., assigning a Festival Queen)',1],
+    ['Use of pyrotechnics, poppers, water, or liquid substances during performance',1],
+    ['Late arrival for the 2:00 PM Thanksgiving Mass',2],
+    ['Arrival after the official start of the parade (after 4:00 PM). Forfeits the remaining ₱10k cash assistance',0]
+  ].map(([n,pts])=>({n,pts}))
+}}
+
+/* ---------- state ---------- */
+const S={mode:'',cfg:null,judges:{},scores:{},deds:{},awards:{},session:null,cat:'elem',sub:'street',atab:'setup',acat:'elem',asub:'street',draft:null,msg:'',ready:false,unsubs:[],pending:{}};
+let db=null;
+const $app=document.getElementById('app');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ls={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+let device=ls.get('tally.device');
+if(!device){device='d'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);ls.set('tally.device',device)}
+const r2=n=>Math.round(n*100)/100;
+const fmt=n=>(Math.round(n*100)/100).toFixed(2);
+function toast(t){const e=document.getElementById('toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,2200)}
+const catName=c=>CATS.find(x=>x[0]===c)[1];
+const nG=c=>Math.max(0,+(S.cfg&&S.cfg.contingents[c])||0);
+const crit=d=>S.cfg.criteria[d]||[];
+const maxTotal=d=>crit(d).reduce((a,c)=>a+(+c.max||0),0);
+const judgeList=()=>Object.values(S.judges).sort((a,b)=>a.n-b.n);
+function rankIn(vals,v){return 1+vals.filter(x=>r2(x)>r2(v)).length}
+
+/* ---------- scoring ---------- */
+const sid=(j,c,d)=>`${j}__${c}__${d}`;
+function cell(j,c,d,g,ci){const doc=S.scores[sid(j,c,d)];const v=doc&&doc.v&&doc.v[g]&&doc.v[g][ci];return v===undefined||v===null||v===''?null:+v}
+function judgeTotal(j,c,d,g){let t=0,any=false;crit(d).forEach((_,ci)=>{const v=cell(j,c,d,g,ci);if(v!==null){t+=v;any=true}});return any?t:null}
+function avgCrit(c,d,g,ci){const vs=judgeList().map(j=>cell(j.id,c,d,g,ci)).filter(v=>v);return vs.length?vs.reduce((a,b)=>a+b,0)/vs.length:0}
+function dedPts(c,d,g){const m=(S.deds[`${c}__${d}`]||{}).d||{};const row=m[g]||{};return Object.keys(row).reduce((a,i)=>a+(row[i]?((S.cfg.deductions[i]||{}).pts||0):0),0)}
+function danceFinal(c,d,g){const sub=crit(d).reduce((a,_,ci)=>a+avgCrit(c,d,g,ci),0);return{sub,ded:dedPts(c,d,g),final:Math.max(0,sub-dedPts(c,d,g))}}
+function table(c,d){const rows=[];for(let g=1;g<=nG(c);g++){const f=danceFinal(c,d,g);rows.push({g,avgs:crit(d).map((_,ci)=>avgCrit(c,d,g,ci)),...f})}const all=rows.map(r=>r.final);rows.forEach(r=>r.rank=rankIn(all,r.final));return rows}
+function overall(c){const st=table(c,'street'),pl=table(c,'pilgrims');const rows=st.map((s,i)=>({g:s.g,street:s.final,pilgrims:pl[i].final,total:s.final+pl[i].final}));const all=rows.map(r=>r.total);rows.forEach(r=>r.rank=rankIn(all,r.total));return rows}
+function awardRank(j,c,a,g){const d=S.awards[`${j}__${c}__${a}`];const v=d&&d.ranks&&d.ranks[g];return v?+v:null}
+function awardTable(c,a){const js=judgeList();const rows=[];for(let g=1;g<=nG(c);g++){const rs=js.map(j=>awardRank(j.id,c,a,g)).filter(Boolean);rows.push({g,n:rs.length,sum:rs.reduce((x,y)=>x+y,0),avg:rs.length?rs.reduce((x,y)=>x+y,0)/rs.length:null})}
+  const avgs=rows.filter(r=>r.avg!==null).map(r=>-r.avg);rows.forEach(r=>r.rank=r.avg===null?null:1+avgs.filter(x=>r2(x)>r2(-r.avg)).length);return rows}
+
+/* ---------- data ---------- */
+function unsubAll(){S.unsubs.forEach(f=>{try{f()}catch(e){}});S.unsubs=[]}
+function watchColl(name,onDocs,q){
+  const ref=q?q(db.collection(name)):db.collection(name);
+  S.unsubs.push(ref.onSnapshot(snap=>{onDocs(snap.docs.map(d=>({id:d.id,data:d.data()})));softRender()},e=>{console.warn(name,e)}))}
+function startCommon(){
+  S.unsubs.push(db.doc('config/main').onSnapshot(s=>{S.cfg=s.exists?s.data():null;if(S.cfg&&!S.cfg.deductions)S.cfg.deductions=defaultCfg().deductions;S.draft=null;softRender()},e=>console.warn(e)));
+  watchColl('judges',ds=>{S.judges={};ds.forEach(d=>S.judges[d.id]={...d.data,id:d.id});checkSession()});
+}
+function startRole(){
+  const s=S.session;if(!s)return;
+  if(s.role==='admin'){
+    watchColl('scores',ds=>{keepPending(ds)});
+    watchColl('deductions',ds=>{S.deds={};ds.forEach(d=>S.deds[d.id]=d.data)});
+    watchColl('awards',ds=>{keepAwards(ds)});
+  }else{
+    const id=s.id;
+    watchColl('scores',ds=>{keepPending(ds)},c=>c.where('judge','==',id));
+    watchColl('awards',ds=>{keepAwards(ds)},c=>c.where('judge','==',id));
+  }
+}
+function keepPending(ds){const keep={};Object.keys(S.pending).forEach(k=>{if(S.scores[k])keep[k]=S.scores[k]});S.scores={};ds.forEach(d=>S.scores[d.id]=d.data);Object.assign(S.scores,keep)}
+function keepAwards(ds){const keep={};Object.keys(S.pending).forEach(k=>{if(S.awards[k])keep[k]=S.awards[k]});S.awards={};ds.forEach(d=>S.awards[d.id]=d.data);Object.assign(S.awards,keep)}
+function restart(){unsubAll();S.scores={};S.deds={};S.awards={};startCommon();startRole()}
+function checkSession(){
+  const s=S.session;
+  if(s&&s.role==='judge'&&Object.keys(S.judges).length){
+    const j=S.judges[s.id];
+    if(!j||j.claimedBy!==device){S.session=null;ls.del('tally.session');S.msg=j?'Admin released this account. Sign in again.':'This judge account no longer exists.';unsubAll();startCommon();render()}
+  }
+}
+
+/* ---------- debounced writes ---------- */
+const timers={};
+function queueSet(coll,id,docData,key){
+  S.pending[key]=1;clearTimeout(timers[key]);
+  timers[key]=setTimeout(async()=>{try{await db.collection(coll).doc(id).set(docData());delete S.pending[key];flash('Saved')}catch(e){console.warn(e);toast('Could not save. Check your connection.')}},450);
+}
+function flash(t){const e=document.getElementById('savedAt');if(e)e.textContent=t+' · '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+
+/* ---------- render ---------- */
+let busy=false;
+function softRender(){
+  const a=document.activeElement;
+  if(a&&/^(INPUT|SELECT)$/.test(a.tagName)&&$app.contains(a)&&a.type!=='checkbox'&&a.type!=='button'){busy=true;return}
+  busy=false;render()}
+document.addEventListener('focusout',()=>{setTimeout(()=>{const a=document.activeElement;if(busy&&!(a&&/^(INPUT|SELECT)$/.test(a.tagName)&&$app.contains(a))){busy=false;render()}},60)});
+
+function render(){
+  if(!db){$app.innerHTML=`<div class="login"><div class="panel"><h1>Voyadores Tally</h1><p class="hint">Sign in to claude.ai to open the tabulator. The shared score database is not available in this view.</p></div></div>`;return}
+  if(!S.session){$app.innerHTML=loginView();return}
+  const s=S.session;
+  const who=s.role==='admin'?'Admin · Tabulator':(S.judges[s.id]?S.judges[s.id].username:'Judge');
+  $app.innerHTML=`<div class="bar"><div class="brand"><b>Voyadores Tally</b><span>${esc(S.cfg?S.cfg.event:'Street and Pilgrims Dance Competition')}</span></div>
+    <span class="chip"><i></i>${esc(who)}</span><span class="hint" id="savedAt"></span>
+    <button class="btn" data-act="logout">Sign out</button></div>
+    ${S.mode==='local'?'<div class="msg warn" style="margin:0 0 14px">Demo mode: scores stay in this browser only. Connect Google Sheets (or Firebase) to share scores between judges.</div>':''}
+    ${s.role==='admin'?adminView():judgeView()}`;
+}
+
+function loginView(){return`<div class="login"><div class="panel">
+  <h1>Voyadores Tally</h1><p class="hint" style="margin:0 0 18px">Street and Pilgrims Dance Competition scoring. Admins and judges sign in here.</p>
+  <form id="loginForm" class="grid" style="grid-template-columns:1fr">
+   <div class="field"><label for="lu">Username</label><input id="lu" autocomplete="username" autocapitalize="off" required></div>
+   <div class="field"><label for="lp">Password</label><input id="lp" type="password" autocomplete="current-password" required></div>
+   <button class="btn pri" type="submit" id="lbtn">Sign in</button></form>
+  ${S.msg?`<div class="msg bad">${esc(S.msg)}</div>`:''}
+  ${S.mode==='local'?'<div class="msg warn">Demo mode: data stays in this browser only.</div>':''}
+  <p class="hint" style="margin-bottom:0">A judge account works on one device only. If you are locked out, ask the tabulator to release it.</p></div></div>`}
+
+/* ---- judge ---- */
+function judgeView(){
+  if(!S.cfg)return`<div class="panel empty">The tabulator has not published a score sheet yet.</div>`;
+  const j=S.session.id;
+  const sub=S.sub;
+  const subs=[['street','Street Dance'],['pilgrims','Pilgrims Dance'],['overall','Overall Scores'],['awards','Special Awards']];
+  return`<div class="tabs" role="tablist">${CATS.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${S.cat===k}" data-act="cat" data-v="${k}">${n} Category</button>`).join('')}</div>
+  <div class="tabs sub" role="tablist">${subs.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${sub===k}" data-act="sub" data-v="${k}">${n}</button>`).join('')}</div>
+  ${sub==='street'||sub==='pilgrims'?judgeSheet(j,S.cat,sub):sub==='overall'?judgeOverall(j,S.cat):judgeAwards(j,S.cat)}`}
+
+function judgeSheet(j,c,d){
+  const cr=crit(d),n=nG(c),w=S.cfg.weights[d];
+  let h=`<div class="panel"><div class="head"><div><h2>${catName(c)} · ${DANCES.find(x=>x[0]===d)[1]}</h2><p>Enter your score for each criterion. Half points are allowed. Scores save automatically.</p></div><span class="pill">${w}% of total</span></div>
+  <div class="scroll"><table data-sheet="${c}|${d}"><thead><tr><th>Group</th>${cr.map(x=>`<th>${esc(x.n)} <span class="mono">(${x.max}%)</span></th>`).join('')}<th>Final Score<br><span class="mono">/ ${maxTotal(d)}</span></th><th>Rank</th></tr></thead><tbody>`;
+  for(let g=1;g<=n;g++){
+    h+=`<tr data-g="${g}"><td>Group ${g}</td>${cr.map((x,ci)=>{const v=cell(j,c,d,g,ci);return`<td><input type="number" inputmode="decimal" min="0" max="${x.max}" step="0.5" value="${v===null?'':v}" data-cell="${g}|${ci}" data-max="${x.max}" aria-label="Group ${g}, ${esc(x.n)}"></td>`}).join('')}<td class="tot num" data-tot></td><td class="rank" data-rank></td></tr>`}
+  h+=`</tbody></table></div>${n===0?'<div class="empty">No contingents set up for this category.</div>':''}</div>`;
+  setTimeout(()=>refreshSheet(c,d),0);
+  return h}
+
+function refreshSheet(c,d){
+  const t=document.querySelector(`table[data-sheet="${c}|${d}"]`);if(!t)return;
+  const j=S.session.id;const tots=[];
+  t.querySelectorAll('tbody tr').forEach(tr=>{const g=tr.dataset.g;const v=judgeTotal(j,c,d,g);tots.push(v);tr.querySelector('[data-tot]').textContent=v===null?'':fmt(v)});
+  const filled=tots.filter(v=>v!==null);
+  t.querySelectorAll('tbody tr').forEach((tr,i)=>{const v=tots[i];const rk=tr.querySelector('[data-rank]');rk.innerHTML=v===null?'':`<b>${rankIn(filled,v)}</b>`;tr.classList.toggle('r1',v!==null&&rankIn(filled,v)===1)})}
+
+function judgeOverall(j,c){
+  const n=nG(c);const rows=[];
+  for(let g=1;g<=n;g++){const s=judgeTotal(j,c,'street',g),p=judgeTotal(j,c,'pilgrims',g);rows.push({g,s,p,t:(s===null&&p===null)?null:(s||0)+(p||0)})}
+  const all=rows.filter(r=>r.t!==null).map(r=>r.t);
+  return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Overall Scores</h2><p>Your own Street Dance and Pilgrims Dance scores added together. Contingent deductions are applied by the tabulator.</p></div><span class="pill">100% total</span></div>
+  <div class="scroll"><table><thead><tr><th>Group</th><th>Street Dance<br><span class="mono">/ ${maxTotal('street')}</span></th><th>Pilgrims Dance<br><span class="mono">/ ${maxTotal('pilgrims')}</span></th><th>Overall<br><span class="mono">/ ${maxTotal('street')+maxTotal('pilgrims')}</span></th><th>Rank</th></tr></thead><tbody>
+  ${rows.map(r=>`<tr class="${r.t!==null&&rankIn(all,r.t)===1?'r1':''}"><td>Group ${r.g}</td><td class="num">${r.s===null?'':fmt(r.s)}</td><td class="num">${r.p===null?'':fmt(r.p)}</td><td class="tot num">${r.t===null?'':fmt(r.t)}</td><td class="rank">${r.t===null?'':`<b>${rankIn(all,r.t)}</b>`}</td></tr>`).join('')}</tbody></table></div></div>`}
+
+function judgeAwards(j,c){
+  const n=nG(c);
+  return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Special Awards</h2><p>Rank every group from 1 (best) to ${n}. Each rank can be used once per award.</p></div></div>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));align-items:start">
+  ${AWARDS.map(([a,name])=>{const ranks=[];for(let g=1;g<=n;g++)ranks.push(awardRank(j,c,a,g));
+    return`<div><h3 style="font-size:16px;margin-bottom:8px">${name}</h3><div class="scroll"><table><thead><tr><th>Group</th><th>Your rank</th></tr></thead><tbody>
+    ${ranks.map((r,i)=>{const dup=r&&ranks.filter(x=>x===r).length>1;return`<tr><td>Group ${i+1}</td><td><input type="number" inputmode="numeric" min="1" max="${n}" step="1" value="${r||''}" data-award="${a}|${c}|${i+1}" class="${dup||(r&&r>n)?'bad':''}" aria-label="${name}, Group ${i+1}"></td></tr>`}).join('')}</tbody></table></div>
+    <div class="hint" id="aw-${a}-${c}" style="margin-top:6px">${awardNote(ranks,n)}</div></div>`}).join('')}</div></div>`}
+function awardNote(ranks,n){const f=ranks.filter(Boolean);const dup=f.length!==new Set(f).size;return dup?'Two groups share a rank. Give each group its own rank.':f.length===n?'All groups ranked.':`${f.length} of ${n} groups ranked.`}
+
+/* ---- admin ---- */
+function adminView(){
+  const tabs=[['setup','Setup'],['judges','Judges'],['elem','Elementary'],['hs','High School']];
+  return`<div class="tabs" role="tablist">${tabs.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${S.atab===k}" data-act="atab" data-v="${k}">${n}</button>`).join('')}</div>
+  ${S.atab==='setup'?setupView():S.atab==='judges'?judgesView():(S.cfg?catAdmin(S.atab):`<div class="panel empty">Load the score sheet in Setup first.</div>`)}`}
+
+function setupView(){
+  if(!S.cfg)return`<div class="panel"><div class="head"><div><h2>Create the score sheet</h2><p>Start from the 2026 festival criteria, then change anything you need.</p></div></div><button class="btn gold" data-act="loaddefaults">Load festival defaults</button></div>`;
+  const d=S.draft||(S.draft=JSON.parse(JSON.stringify(S.cfg)));
+  const critTable=k=>`<div class="panel"><div class="head"><div><h2>${DANCES.find(x=>x[0]===k)[1]} criteria</h2><p>The percentage is the most points a judge can give for that criterion.</p></div>
+    <span class="pill" data-sum="${k}"></span></div>
+    <div class="row" style="margin-bottom:10px"><div class="field" style="width:150px"><label for="w-${k}">Share of total score (%)</label><input type="number" id="w-${k}" min="0" max="100" value="${d.weights[k]}" data-w="${k}"></div></div>
+    <div class="scroll"><table class="crit"><thead><tr><th style="text-align:left">Criterion</th><th>Percentage</th><th></th></tr></thead><tbody>
+    ${d.criteria[k].map((x,i)=>`<tr><td><input type="text" value="${esc(x.n)}" data-cn="${k}|${i}" aria-label="Criterion name"></td><td><input type="number" min="0" step="0.5" value="${x.max}" data-cm="${k}|${i}" aria-label="Percentage"></td><td><button class="btn sm bad" data-act="delcrit" data-v="${k}|${i}">Remove</button></td></tr>`).join('')}
+    </tbody></table></div><div style="margin-top:10px"><button class="btn sm" data-act="addcrit" data-v="${k}">Add criterion</button></div></div>`;
+  setTimeout(updateSums,0);
+  return`<div class="panel"><div class="head"><div><h2>Competition</h2><p>Event title and number of contingents (groups) per category.</p></div></div>
+   <div class="grid"><div class="field" style="grid-column:1/-1"><label for="ev">Event name</label><input id="ev" value="${esc(d.event)}" data-ev></div>
+   ${CATS.map(([k,n])=>`<div class="field"><label for="ct-${k}">${n} contingents</label><input type="number" id="ct-${k}" min="0" max="40" value="${d.contingents[k]}" data-ct="${k}"></div>`).join('')}</div></div>
+   ${critTable('street')}${critTable('pilgrims')}
+   <div class="panel"><div class="row"><button class="btn pri" data-act="savecfg">Save and publish to judges</button><span class="hint">Judges see the new score sheet right away. Scores already entered are kept.</span></div>
+   <hr style="border:0;border-top:1px solid var(--line);margin:16px 0"><div class="row"><button class="btn bad" data-act="clearscores" id="clearBtn">Clear all scores, ranks and deductions</button><span class="hint">Starts a fresh event. Judge accounts stay.</span></div></div>`}
+function updateSums(){if(!S.draft)return;DANCES.forEach(([k])=>{const e=document.querySelector(`[data-sum="${k}"]`);if(!e)return;const s=S.draft.criteria[k].reduce((a,c)=>a+(+c.max||0),0),w=+S.draft.weights[k]||0;e.textContent=`Total ${s}% of ${w}%`;e.className='pill '+(s===w?'ok':'warn')})}
+
+function judgesView(){
+  const js=judgeList();
+  const prog=j=>{if(!S.cfg)return'';return''};
+  return`<div class="panel"><div class="head"><div><h2>Judge accounts</h2><p>Each account locks to the first device that signs in, even after sign out. Release it so someone else can use it.</p></div>
+    <div class="row"><div class="field" style="width:110px"><label for="jn">Judges</label><input type="number" id="jn" min="1" max="30" value="${Math.max(js.length,5)}"></div><button class="btn pri" data-act="makejudges" style="align-self:end">Create accounts</button></div></div>
+  ${js.length?`<div class="scroll"><table><thead><tr><th>#</th><th>Username</th><th>Password</th><th>Status</th><th>Scores entered</th><th></th></tr></thead><tbody>
+  ${js.map(j=>`<tr><td>${j.n}</td><td><input class="jin" type="text" value="${esc(j.username)}" data-ju="${j.id}" style="width:130px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 8px" aria-label="Username for judge ${j.n}"></td>
+   <td><input class="jin" type="text" value="${esc(j.password)}" data-jp="${j.id}" style="width:100px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 8px" aria-label="Password for judge ${j.n}"></td>
+   <td>${j.claimedBy?'<span class="pill bad">In use</span>':'<span class="pill ok">Available</span>'}</td>
+   <td class="num">${scoresEntered(j.id)}</td>
+   <td><div class="row" style="justify-content:center"><button class="btn sm" data-act="release" data-v="${j.id}" ${j.claimedBy?'':'disabled'}>Release</button><button class="btn sm bad" data-act="deljudge" data-v="${j.id}">Delete</button></div></td></tr>`).join('')}</tbody></table></div>
+  <p class="hint">Default logins are Judge1 with 1111, Judge2 with 2222, and so on. Edit a field and leave it to save.</p>`:`<div class="empty">No judge accounts yet. Enter how many judges can join and press Create accounts.</div>`}</div>
+  ${S.msg?`<div class="msg warn">${esc(S.msg)}</div>`:''}`}
+function scoresEntered(id){if(!S.cfg)return'';let f=0,t=0;CATS.forEach(([c])=>DANCES.forEach(([d])=>{for(let g=1;g<=nG(c);g++)crit(d).forEach((_,ci)=>{t++;if(cell(id,c,d,g,ci)!==null)f++})}));return`${f} / ${t}`}
+
+function catAdmin(c){
+  const subs=[['street','Street Dance (40%)'],['pilgrims','Pilgrims Dance (60%)'],['overall','Overall'],['awards','Special Awards'],['deds','Deductions']];
+  subs[0][1]=`Street Dance (${S.cfg.weights.street}%)`;subs[1][1]=`Pilgrims Dance (${S.cfg.weights.pilgrims}%)`;
+  const sub=S.asub;
+  return`<div class="tabs sub" role="tablist">${subs.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${sub===k}" data-act="asub" data-v="${k}">${n}</button>`).join('')}</div>
+  ${sub==='street'||sub==='pilgrims'?adminDance(c,sub):sub==='overall'?adminOverall(c):sub==='awards'?adminAwards(c):adminDeds(c)}`}
+
+function adminDance(c,d){
+  const cr=crit(d),rows=table(c,d),js=judgeList();
+  return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Score sheet overall, ${DANCES.find(x=>x[0]===d)[1]}</h2><p>Criterion scores are the average of all judges who scored them. Deductions come off the sum.</p></div><span class="pill">${S.cfg.weights[d]}% of total score</span></div>
+  <div class="scroll"><table><thead><tr><th>Group</th>${cr.map(x=>`<th>${esc(x.n)} <span class="mono">(${x.max}%)</span></th>`).join('')}<th>Deductions</th><th>Final Score <span class="mono">(${S.cfg.weights[d]}%)</span></th><th>Rank</th>${js.map(j=>`<th>${esc(j.username)}</th>`).join('')}</tr></thead><tbody>
+  ${rows.map(r=>`<tr class="${r.rank===1&&r.final>0?'r1':''}"><td>Group ${r.g}</td>${r.avgs.map(v=>`<td class="num">${v?fmt(v):''}</td>`).join('')}<td class="num">${r.ded?'−'+fmt(r.ded):''}</td><td class="tot num">${r.final?fmt(r.final):''}</td><td class="rank">${r.final?`<b>${r.rank}</b>`:''}</td>${js.map(j=>{const t=judgeTotal(j.id,c,d,r.g);return`<td class="num">${t===null?'':fmt(t)}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>
+  <div class="legend"><span>Judge columns show each judge's own total out of ${maxTotal(d)}, before deductions.</span></div></div>`}
+
+function adminOverall(c){
+  const rows=overall(c);
+  return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Overall score</h2><p>Street Dance plus Pilgrims Dance, after deductions.</p></div><span class="pill">${S.cfg.weights.street+S.cfg.weights.pilgrims}% total</span></div>
+  <div class="scroll"><table><thead><tr><th>Group</th><th>Street Dance (${S.cfg.weights.street}%)</th><th>Pilgrims Dance (${S.cfg.weights.pilgrims}%)</th><th>Overall</th><th>Rank</th></tr></thead><tbody>
+  ${rows.map(r=>`<tr class="${r.rank===1&&r.total>0?'r1':''}"><td>Group ${r.g}</td><td class="num">${r.street?fmt(r.street):''}</td><td class="num">${r.pilgrims?fmt(r.pilgrims):''}</td><td class="tot num">${r.total?fmt(r.total):''}</td><td class="rank">${r.total?`<b>${r.rank}</b>`:''}</td></tr>`).join('')}</tbody></table></div></div>`}
+
+function adminAwards(c){
+  return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Special awards</h2><p>Judges rank each group. The group with the lowest average rank places first.</p></div></div>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));align-items:start">${AWARDS.map(([a,name])=>{const rows=awardTable(c,a);
+  return`<div><h3 style="font-size:16px;margin-bottom:8px">${name}</h3><div class="scroll"><table><thead><tr><th>Group</th><th>Judges ranked</th><th>Rank total</th><th>Average rank</th><th>Result</th></tr></thead><tbody>
+  ${rows.map(r=>`<tr class="${r.rank===1?'r1':''}"><td>Group ${r.g}</td><td class="num">${r.n}</td><td class="num">${r.n?r.sum:''}</td><td class="num">${r.avg===null?'':fmt(r.avg)}</td><td class="rank">${r.rank?`<b>${r.rank}</b>`:''}</td></tr>`).join('')}</tbody></table></div></div>`}).join('')}</div></div>`}
+
+function adminDeds(c){
+  const items=S.cfg.deductions||[];
+  return DANCES.map(([d,dn])=>{
+    const m=(S.deds[`${c}__${d}`]||{}).d||{};
+    return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Deductions, ${dn}</h2><p>Tick every rule a contingent broke. Points come off its ${dn} final score.</p></div></div>
+    <div class="scroll"><table class="ded"><thead><tr><th>Group</th>${items.map((x,i)=>`<th title="${esc(x.n)}">${i+1}<br><span class="mono">${x.pts?x.pts+' pt'+(x.pts>1?'s':''):'Forfeit'}</span></th>`).join('')}<th>Total</th></tr></thead><tbody>
+    ${Array.from({length:nG(c)},(_,k)=>k+1).map(g=>`<tr><td>Group ${g}</td>${items.map((x,i)=>`<td><input type="checkbox" ${(m[g]||{})[i]?'checked':''} data-ded="${c}|${d}|${g}|${i}" aria-label="Group ${g}: ${esc(x.n)}"></td>`).join('')}<td class="num tot" data-dt="${c}|${d}|${g}">${dedPts(c,d,g)||''}</td></tr>`).join('')}</tbody></table></div>
+    <div class="legend">${items.map((x,i)=>`<span><b class="mono">${i+1}</b> ${esc(x.n)}</span>`).join('')}</div></div>`}).join('')}
+
+/* ---------- events ---------- */
+document.addEventListener('submit',async e=>{
+  if(e.target.id!=='loginForm')return;e.preventDefault();
+  const u=document.getElementById('lu').value.trim(),p=document.getElementById('lp').value;
+  const btn=document.getElementById('lbtn');btn.disabled=true;
+  S.msg='';
+  try{
+    if(u.toLowerCase()===ADMIN.u&&p===ADMIN.p){S.session={role:'admin'};ls.set('tally.session',JSON.stringify(S.session));restart();render();return}
+    const j=judgeList().find(x=>x.username.toLowerCase()===u.toLowerCase());
+    if(!j||j.password!==p){S.msg='Wrong username or password.';render();return}
+    const bound=ls.get('tally.bound');
+    if(bound&&bound!==j.id){const bj=S.judges[bound];if(bj&&bj.claimedBy===device){S.msg=`This device is locked to ${bj.username}. It cannot sign in to another account.`;render();return}}
+    const ref=db.collection('judges').doc(j.id);
+    const lease=await ref.acquire({holder:device,ttlMs:4000});
+    if(!lease.acquired){S.msg='Another sign-in is in progress. Try again in a few seconds.';render();return}
+    const snap=await ref.get();const cur=snap.data()||{};
+    if(cur.claimedBy&&cur.claimedBy!==device){S.msg='This account is already in use on another device. Ask the tabulator to release it.';render();return}
+    if(!cur.claimedBy)await ref.update({claimedBy:device,claimedAt:Date.now()});
+    ls.set('tally.bound',j.id);
+    S.session={role:'judge',id:j.id};ls.set('tally.session',JSON.stringify(S.session));
+    S.cat='elem';S.sub='street';
+    restart();render();
+  }catch(err){console.warn(err);S.msg='Sign-in failed. Check your connection and try again.';render()}
+  finally{const b=document.getElementById('lbtn');if(b)b.disabled=false}
+});
+
+document.addEventListener('click',async e=>{
+  const t=e.target.closest('[data-act]');if(!t)return;
+  const a=t.dataset.act,v=t.dataset.v;
+  if(a==='cat'){S.cat=v;render()}
+  else if(a==='sub'){S.sub=v;render()}
+  else if(a==='atab'){S.atab=v;S.msg='';render()}
+  else if(a==='asub'){S.asub=v;render()}
+  else if(a==='logout'){S.session=null;ls.del('tally.session');S.msg='';unsubAll();S.scores={};S.deds={};S.awards={};startCommon();render()}
+  else if(a==='loaddefaults'){await db.doc('config/main').set(defaultCfg());toast('Festival defaults loaded')}
+  else if(a==='addcrit'){S.draft.criteria[v].push({n:'New criterion',max:5});render()}
+  else if(a==='delcrit'){const[k,i]=v.split('|');S.draft.criteria[k].splice(+i,1);render()}
+  else if(a==='savecfg'){
+    const d=S.draft;d.weights.street=+d.weights.street||0;d.weights.pilgrims=+d.weights.pilgrims||0;
+    ['street','pilgrims'].forEach(k=>d.criteria[k].forEach(c=>c.max=+c.max||0));
+    CATS.forEach(([k])=>d.contingents[k]=Math.max(0,Math.min(40,+d.contingents[k]||0)));
+    await db.doc('config/main').set(d);toast('Score sheet published to judges')}
+  else if(a==='clearscores'){
+    if(!t.dataset.armed){t.dataset.armed=1;t.textContent='Press again to confirm. This cannot be undone';setTimeout(()=>{if(t.isConnected){delete t.dataset.armed;t.textContent='Clear all scores, ranks and deductions'}},4000);return}
+    for(const coll of ['scores','deductions','awards']){const snap=await db.collection(coll).get();await Promise.all(snap.docs.map(d=>db.collection(coll).doc(d.id).delete()))}
+    S.scores={};S.deds={};S.awards={};toast('All scores cleared');render()}
+  else if(a==='makejudges'){
+    const n=Math.max(1,Math.min(30,+document.getElementById('jn').value||0));
+    const have=judgeList();
+    const jobs=[];for(let i=1;i<=n;i++){const id='j'+i;if(!S.judges[id])jobs.push(db.collection('judges').doc(id).set({n:i,username:'Judge'+i,password:String(i).repeat(4),claimedBy:null}))}await Promise.all(jobs);
+    const extra=have.filter(j=>j.n>n);
+    S.msg=extra.length?`${extra.length} account(s) above ${n} were kept. Delete them below if you do not need them.`:'';
+    toast(`${n} judge accounts ready`);render()}
+  else if(a==='release'){await db.collection('judges').doc(v).update({claimedBy:null,claimedAt:null});toast('Released. The username can be used again.')}
+  else if(a==='deljudge'){
+    if(!t.dataset.armed){t.dataset.armed=1;t.textContent='Confirm';setTimeout(()=>{if(t.isConnected){delete t.dataset.armed;t.textContent='Delete'}},3000);return}
+    await db.collection('judges').doc(v).delete();toast('Judge deleted')}
+});
+
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.dataset.cell){
+    const[g,ci]=t.dataset.cell.split('|');const c=S.cat,d=S.sub,j=S.session.id,max=+t.dataset.max;
+    let val=t.value===''?null:+t.value;
+    if(val!==null&&(val<0||val>max||isNaN(val))){t.classList.add('bad');return}
+    t.classList.remove('bad');
+    const id=sid(j,c,d);
+    const doc=S.scores[id]||(S.scores[id]={judge:j,cat:c,dance:d,v:{}});
+    doc.v[g]=doc.v[g]||{};if(val===null)delete doc.v[g][ci];else doc.v[g][ci]=val;
+    refreshSheet(c,d);queueSet('scores',id,()=>S.scores[id],id);
+  }
+  else if(t.dataset.award){
+    const[a,c,g]=t.dataset.award.split('|');const j=S.session.id,n=nG(c);
+    const id=`${j}__${c}__${a}`;const doc=S.awards[id]||(S.awards[id]={judge:j,cat:c,award:a,ranks:{}});
+    const val=t.value===''?null:Math.round(+t.value);
+    if(val===null)delete doc.ranks[g];else doc.ranks[g]=val;
+    const ranks=[];for(let k=1;k<=n;k++)ranks.push(doc.ranks[k]||null);
+    document.querySelectorAll(`[data-award^="${a}|${c}|"]`).forEach((inp,i)=>{const r=ranks[i];inp.classList.toggle('bad',!!r&&(ranks.filter(x=>x===r).length>1||r>n||r<1))});
+    const note=document.getElementById(`aw-${a}-${c}`);if(note)note.textContent=awardNote(ranks,n);
+    S.pending[id]=1;queueSet('awards',id,()=>S.awards[id],id);
+    setTimeout(()=>{},0);
+  }
+  else if(S.draft){
+    if(t.dataset.ev!==undefined)S.draft.event=t.value;
+    else if(t.dataset.ct)S.draft.contingents[t.dataset.ct]=t.value;
+    else if(t.dataset.w){S.draft.weights[t.dataset.w]=t.value;updateSums()}
+    else if(t.dataset.cn){const[k,i]=t.dataset.cn.split('|');S.draft.criteria[k][+i].n=t.value}
+    else if(t.dataset.cm){const[k,i]=t.dataset.cm.split('|');S.draft.criteria[k][+i].max=t.value;updateSums()}
+  }
+});
+
+document.addEventListener('change',async e=>{
+  const t=e.target;
+  if(t.dataset.ded){
+    const[c,d,g,i]=t.dataset.ded.split('|');const id=`${c}__${d}`;
+    const doc=S.deds[id]||(S.deds[id]={d:{}});doc.d=doc.d||{};doc.d[g]=doc.d[g]||{};
+    if(t.checked)doc.d[g][i]=1;else delete doc.d[g][i];
+    const cellEl=document.querySelector(`[data-dt="${c}|${d}|${g}"]`);if(cellEl)cellEl.textContent=dedPts(c,d,+g)||'';
+    await db.collection('deductions').doc(id).set(doc);toast('Deduction saved');
+  }
+  else if(t.dataset.ju||t.dataset.jp){
+    const id=t.dataset.ju||t.dataset.jp,f=t.dataset.ju?'username':'password',val=t.value.trim();
+    if(!val){toast('This field cannot be empty');render();return}
+    if(f==='username'&&judgeList().some(j=>j.id!==id&&j.username.toLowerCase()===val.toLowerCase())){toast('Another judge already has that username');render();return}
+    await db.collection('judges').doc(id).update({[f]:val});toast('Saved')}
+});
+
+/* ---------- boot ---------- */
+/* ---------- storage backends ----------
+   1) claude.ai artifact: built-in shared database.
+   2) GitHub Pages or any host: Firebase Firestore. Paste your web app config below.
+   3) No config: demo mode that keeps data in this browser only. */
+const SHEETS_URL=null;      // Apps Script web app URL ending in /exec
+const SHEETS_SECRET='https://script.google.com/macros/s/AKfycbxh_YY7j7IsvbkQrGuXXxkQSzQug2yw2BZiv1IjGSvHV3_f86_mxxgZ4aFJKMxBMV6M/exec';   // must match SECRET in Code.gs
+const FIREBASE_CONFIG=null;
+/* Example:
+const FIREBASE_CONFIG={apiKey:"...",authDomain:"...",projectId:"...",appId:"..."};
+*/
+function loadScript(src){return new Promise((res,rej)=>{const e=document.createElement('script');e.src=src;e.onload=res;e.onerror=rej;document.head.appendChild(e)})}
+async function firebaseDb(){
+  const v='10.12.2';
+  await loadScript(`https://www.gstatic.com/firebasejs/${v}/firebase-app-compat.js`);
+  await loadScript(`https://www.gstatic.com/firebasejs/${v}/firebase-firestore-compat.js`);
+  firebase.initializeApp(FIREBASE_CONFIG);
+  const fs=firebase.firestore();
+  const wrapDoc=ref=>new Proxy(ref,{get(t,k){
+    if(k==='acquire')return async({holder,ttlMs=4000})=>fs.runTransaction(async tx=>{
+      const snap=await tx.get(t);const d=snap.exists?snap.data():{};const now=Date.now();
+      if(d._leaseUntil>now&&d._leaseHolder!==holder)return{acquired:false};
+      tx.set(t,{_leaseUntil:now+ttlMs,_leaseHolder:holder},{merge:true});return{acquired:true}});
+    const x=t[k];return typeof x==='function'?x.bind(t):x}});
+  const wrapColl=c=>new Proxy(c,{get(t,k){
+    if(k==='doc')return id=>wrapDoc(t.doc(id));
+    const x=t[k];return typeof x==='function'?x.bind(t):x}});
+  return{collection:n=>wrapColl(fs.collection(n)),doc:p=>wrapDoc(fs.doc(p))};
+}
+function sheetsDb(url,secret){
+  const cache={},subs=[];let seq=0,timer=null,polling=false,loaded=false;
+  async function post(body){
+    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({secret,...body})});
+    const j=await r.json();if(!j.ok)throw new Error(j.error||'request failed');return j}
+  const sig=o=>JSON.stringify(o);
+  function view(sub){
+    if(sub.kind==='doc'){const v=(cache[sub.coll]||{})[sub.id];return v===undefined?{id:sub.id,exists:false,data:()=>undefined}:{id:sub.id,exists:true,data:()=>JSON.parse(JSON.stringify(v))}}
+    const docs=Object.keys(cache[sub.coll]||{}).map(id=>({id,data:()=>JSON.parse(JSON.stringify(cache[sub.coll][id]))})).filter(d=>!sub.flt||d.data()[sub.flt[0]]===sub.flt[2]);
+    return{docs}}
+  function sigOf(sub){if(sub.kind==='doc')return sig((cache[sub.coll]||{})[sub.id]);const v=view(sub);return sig(v.docs.map(d=>[d.id,d.data()]))}
+  function notify(force){subs.slice().forEach(s=>{if(!loaded)return;const g=sigOf(s);if(force||g!==s.last){s.last=g;s.next(view(s))}})}
+  async function poll(){
+    if(polling||!subs.length)return;polling=true;
+    const start=seq;
+    try{
+      const colls=[...new Set(subs.map(s=>s.coll))];
+      const res=await post({op:'dump',colls});
+      if(seq!==start){polling=false;return poll()}   // a write happened meanwhile: refetch
+      colls.forEach(c=>cache[c]=res.data[c]||{});loaded=true;notify(false);
+    }catch(e){console.warn('poll',e)}
+    polling=false}
+  function ensureTimer(){if(timer)return;timer=setInterval(()=>{if(!document.hidden)poll()},3500);document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll()})}
+  function addSub(s){subs.push(s);ensureTimer();setTimeout(poll,0);
+    return()=>{const i=subs.indexOf(s);if(i>=0)subs.splice(i,1)}}
+  const local=(coll,id,fn)=>{seq++;cache[coll]=cache[coll]||{};fn(cache[coll]);notify(false)};
+  const docRef=(coll,id)=>({id,
+    async get(){const r=await post({op:'get',coll,id});return{id,exists:r.exists,data:()=>r.data||undefined}},
+    async set(v){const d=JSON.parse(JSON.stringify(v));local(coll,id,c=>c[id]=d);await post({op:'set',coll,id,data:d});seq++},
+    async update(v){const d=JSON.parse(JSON.stringify(v));await post({op:'update',coll,id,data:d});local(coll,id,c=>{c[id]=Object.assign(c[id]||{},d)})},
+    async delete(){local(coll,id,c=>{delete c[id]});await post({op:'delete',coll,id});seq++},
+    async acquire({holder,ttlMs=4000}){const r=await post({op:'acquire',coll,id,holder,ttlMs});return{acquired:r.acquired}},
+    onSnapshot(next){return addSub({kind:'doc',coll,id,next,last:undefined})}});
+  const query=(coll,flt)=>({
+    where:(f,o,v)=>query(coll,[f,o,v]),
+    async get(){const r=await post({op:'dump',colls:[coll]});const m=r.data[coll]||{};return{docs:Object.keys(m).map(id=>({id,data:()=>m[id]})).filter(d=>!flt||d.data()[flt[0]]===flt[2])}},
+    onSnapshot(next){return addSub({kind:'coll',coll,flt,next,last:undefined})}});
+  return{collection:n=>({...query(n),doc:id=>docRef(n,id)}),doc:p=>{const[c,i]=p.split('/');return docRef(c,i)}};
+}
+function localDb(){
+  const KEY='tally.local';const subs=[];
+  const load=()=>{try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return{}}};
+  const save=d=>{try{localStorage.setItem(KEY,JSON.stringify(d))}catch(e){}};
+  const notify=()=>subs.slice().forEach(f=>f());
+  window.addEventListener('storage',e=>{if(e.key===KEY)notify()});
+  const snapOf=(coll,id)=>{const v=(load()[coll]||{})[id];return{id,exists:v!==undefined,data:()=>v===undefined?undefined:JSON.parse(JSON.stringify(v))}};
+  const docRef=(coll,id)=>({id,
+    async get(){return snapOf(coll,id)},
+    async set(v){const d=load();(d[coll]=d[coll]||{})[id]=JSON.parse(JSON.stringify(v));save(d);notify()},
+    async update(v){const d=load();const cur=(d[coll]||{})[id];if(cur===undefined)throw new Error('missing');Object.assign(cur,JSON.parse(JSON.stringify(v)));save(d);notify()},
+    async delete(){const d=load();if(d[coll])delete d[coll][id];save(d);notify()},
+    async acquire(){return{acquired:true}},
+    onSnapshot(next){const f=()=>next(snapOf(coll,id));subs.push(f);setTimeout(f,0);return()=>{const i=subs.indexOf(f);if(i>=0)subs.splice(i,1)}}});
+  const query=(coll,flt)=>{const docs=()=>Object.keys(load()[coll]||{}).map(id=>snapOf(coll,id)).filter(s=>!flt||s.data()[flt[0]]===flt[2]);
+    return{where:(f,o,v)=>query(coll,[f,o,v]),async get(){return{docs:docs()}},
+      onSnapshot(next){const f=()=>next({docs:docs()});subs.push(f);setTimeout(f,0);return()=>{const i=subs.indexOf(f);if(i>=0)subs.splice(i,1)}}}};
+  const coll=n=>({...query(n),doc:id=>docRef(n,id)});
+  return{collection:coll,doc:p=>{const[c,i]=p.split('/');return docRef(c,i)}};
+}
+async function getBackend(){
+  try{if(window.claude&&claude.use){const d=await claude.use('db');if(d)return{db:d,mode:'claude'}}}catch(e){}
+  if(SHEETS_URL)return{db:sheetsDb(SHEETS_URL,SHEETS_SECRET),mode:'sheets'};
+  if(FIREBASE_CONFIG){try{return{db:await firebaseDb(),mode:'firebase'}}catch(e){console.warn(e)}}
+  return{db:localDb(),mode:'local'}
+}
+async function boot(){
+  const b=await getBackend();db=b.db;S.mode=b.mode;
+  try{const raw=ls.get('tally.session');if(raw)S.session=JSON.parse(raw)}catch(e){}
+  startCommon();startRole();render();
+}
+boot();
+})();
+</script>
+</body></html>
