@@ -346,7 +346,7 @@ function loginView(){return`<div class="loginbg" aria-hidden="true"><i class="s7
    <div class="field"><label for="lu">Username</label><input id="lu" autocomplete="username" autocapitalize="off" required></div>
    <div class="field"><label for="lp">Password</label><input id="lp" type="password" autocomplete="current-password" required></div>
    <button class="btn pri" type="submit" id="lbtn">Sign in</button></form>
-  ${S.msg?`<div class="msg bad">${esc(S.msg)}</div>`:''}
+  ${S.msg?`<div class="msg bad">${esc(S.msg)}</div>`:window.__dbErr?`<div class="msg bad">Database problem: ${esc(window.__dbErr)}</div>`:''}
   ${S.mode==='local'?'<div class="msg warn">Demo mode: data stays in this browser only.</div>':''}
   <p class="hint" style="margin-bottom:0">A judge account works on one device only. If you are locked out, ask the tabulator to release it.</p></div></div>`}
 
@@ -632,7 +632,7 @@ document.addEventListener('submit',async e=>{
     const find=()=>judgeList().find(x=>x.username.toLowerCase()===u.toLowerCase());
     let j=find();
     if(!j||j.password!==p){
-      try{const snap=await db.collection('judges').get();const m={};snap.docs.forEach(d=>m[d.id]={...d.data(),id:d.id});S.judges=m}catch(err){console.warn(err);S.msg='Could not reach the database. Check your connection and try again.';render();return}
+      try{const snap=await db.collection('judges').get();const m={};snap.docs.forEach(d=>m[d.id]={...d.data(),id:d.id});S.judges=m}catch(err){console.warn(err);S.msg='Could not reach the database: '+explainErr(err);render();return}
       j=find()}
     if(!j||j.password!==p){S.msg=judgeList().length?'Wrong username or password.':'No judge accounts exist yet. Ask the tabulator to create them in Judges Setup.';render();return}
     const bound=ls.get('tally.bound');
@@ -647,10 +647,11 @@ document.addEventListener('submit',async e=>{
     S.session={role:'judge',id:j.id};ls.set('tally.session',JSON.stringify(S.session));
     S.cat='elem';S.sub='street';
     restart();render();
-  }catch(err){console.warn(err);S.msg='Sign-in failed. Check your connection and try again.';render()}
+  }catch(err){console.warn(err);S.msg='Sign-in failed: '+explainErr(err);render()}
   finally{const b=document.getElementById('lbtn');if(b)b.disabled=false}
 });
 
+window.addEventListener('dberr',()=>{if(S.session)return;const u=document.getElementById('lu'),p=document.getElementById('lp');if(!u||(!u.value&&!p.value))render()});
 document.addEventListener('click',async e=>{
   const t=e.target.closest('[data-act]');if(!t)return;
   const a=t.dataset.act,v=t.dataset.v;
@@ -799,6 +800,12 @@ async function firebaseDb(){
     const x=t[k];return typeof x==='function'?x.bind(t):x}});
   return{collection:n=>wrapColl(fs.collection(n)),doc:p=>wrapDoc(fs.doc(p))};
 }
+function explainErr(e){
+  const m=String((e&&e.message)||e||'');
+  if(/unauthori[sz]ed/i.test(m))return'The secret in this page does not match SECRET in Code.gs. Make them identical, then redeploy the script as a new version.';
+  if(/Failed to fetch|NetworkError|Load failed/i.test(m))return'The browser could not reach the Apps Script link. Check the internet connection, that SHEETS_URL is the link ending in /exec, and that the Web app is deployed with access set to Anyone.';
+  if(/Unexpected token|JSON|<!DOCTYPE/i.test(m))return'The Web app answered with a Google page instead of data. Deploy it as Execute as: Me, Who has access: Anyone, then use the new /exec link.';
+  return m||'Unknown error';}
 function sheetsDb(url,secret){
   const cache={},subs=[];let seq=0,inflight=0,timer=null,polling=false,loaded=false;
   const wr=async fn=>{inflight++;try{return await fn()}finally{inflight--;seq++}};
@@ -820,7 +827,7 @@ function sheetsDb(url,secret){
       const res=await post({op:'dump',colls});
       if(seq!==start||inflight>0){polling=false;setTimeout(poll,inflight?400:0);return}   // a write is running or just finished: this answer may be stale, refetch
       colls.forEach(c=>cache[c]=res.data[c]||{});loaded=true;notify(false);
-    }catch(e){console.warn('poll',e)}
+    window.__dbErr=null;}catch(e){console.warn('poll',e);const had=window.__dbErr;window.__dbErr=explainErr(e);if(had!==window.__dbErr)window.dispatchEvent(new Event('dberr'))}
     polling=false}
   function ensureTimer(){if(timer)return;timer=setInterval(()=>{if(!document.hidden)poll()},3500);document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll()})}
   function addSub(s){subs.push(s);ensureTimer();setTimeout(poll,0);
