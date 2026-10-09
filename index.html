@@ -99,6 +99,24 @@ td input.bad{border-color:var(--bad);background:var(--bad-soft)}
 .print-only{display:none}
 .sig{gap:24px;margin-top:26px}
 .sig div{border-top:1px solid #000;padding-top:4px;text-align:center;font-size:12px}
+.hdrimgs{align-items:center;gap:var(--gap,6px);width:min(100%,calc(var(--sum)*var(--mh) + (var(--n) - 1)*var(--gap,6px)));margin:0 auto 8px}
+.hdrimgs img{min-width:0;height:auto;display:block}
+.hslots{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px}
+.hslot{display:flex;flex-direction:column;gap:8px}
+.hbox{height:110px;border-radius:16px;border:1px solid #1f3a78;background:#4472c4;color:#fff;font-size:15px;line-height:1.5;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:8px;overflow:hidden}
+.hbox:hover{filter:brightness(1.08)}
+.hbox.has{background:#fff;border-color:var(--line)}
+.hbox img{max-width:100%;max-height:100%;object-fit:contain}
+.hrow{display:flex;gap:6px}.hrow .btn{flex:1;padding:5px 8px;font-size:13px}
+.pwrap{background:var(--surface2);border-radius:10px;padding:18px}
+.paper{container-type:inline-size;background:#fff;color:#000;aspect-ratio:297/210;max-width:860px;margin:0 auto;padding:3.4cqw;box-shadow:0 2px 14px rgba(0,0,0,.28);overflow:hidden;font-family:Arial,Helvetica,sans-serif}
+.paper .hdrimgs{display:flex;--mh:13.5cqw;--gap:1cqw;margin-bottom:1.2cqw}
+.pv-none{border:1px dashed #999;color:#777;text-align:center;font-size:1.3cqw;padding:2cqw;margin-bottom:1.2cqw}
+.pv-ev{font-weight:700;font-size:1.9cqw;text-align:center}
+.pv-sub{font-size:1.2cqw;text-align:center;margin:.3cqw 0 1.2cqw}
+.pv-row{display:grid;grid-template-columns:2fr repeat(5,1fr) 1fr;border:1px solid #888;border-top:0;height:2.2cqw}
+.pv-row:first-child{border-top:1px solid #888;background:#ddd}
+.pv-row i{border-left:1px solid #888}.pv-row i:first-child{border-left:0}
 @media (max-width:560px){.panel{padding:12px}th,td{padding:6px}}
 @media (prefers-reduced-motion:no-preference){.tab,.btn{transition:background .12s,border-color .12s}}
 @media print{
@@ -108,6 +126,7 @@ td input.bad{border-color:var(--bad);background:var(--bad-soft)}
   .bar,.tabs,.no-print,.toast,.btn,.msg{display:none!important}
   .print-only{display:block!important}
   .print-only.sig{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+  .print-only.hdrimgs{display:flex!important;--mh:40mm;--gap:3mm}
   .print-head{margin-bottom:10px;border-bottom:2px solid #000;padding-bottom:6px}
   .print-head b{font-size:15px}
   .panel{border:0;padding:0;border-radius:0}
@@ -174,7 +193,7 @@ function normCfg(c){c=c||{};const dd=defaultCfg().deductions;const d=c.deduction
   ['street','pilgrims'].forEach(k=>c.deductions[k].forEach((x,i)=>{if(!x.id)x.id='d'+i}));return c}
 
 /* ---------- state ---------- */
-const S={confirm:null,jsc:'elem',jsd:'street',mode:'',cfg:null,judges:{},scores:{},deds:{},awards:{},session:null,cat:'elem',sub:'street',atab:'setup',acat:'elem',asub:'street',draft:null,msg:'',ready:false,unsubs:[],pending:{}};
+const S={confirm:null,jsc:'elem',jsd:'street',mode:'',cfg:null,judges:{},scores:{},deds:{},awards:{},session:null,cat:'elem',sub:'street',hdr:[null,null,null,null],atab:'setup',acat:'elem',asub:'street',draft:null,msg:'',ready:false,unsubs:[],pending:{}};
 let db=null;
 const $app=document.getElementById('app');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -212,6 +231,7 @@ function watchColl(name,onDocs,q){
   S.unsubs.push(ref.onSnapshot(snap=>{onDocs(snap.docs.map(d=>({id:d.id,data:d.data()})));softRender()},e=>{console.warn(name,e)}))}
 function startCommon(){
   S.unsubs.push(db.doc('config/main').onSnapshot(s=>{S.cfg=s.exists?normCfg(s.data()):null;S.draft=null;softRender()},e=>console.warn(e)));
+  [1,2,3,4].forEach(i=>S.unsubs.push(db.doc('config/hdr'+i).onSnapshot(s=>{const d=s.exists?s.data():null;S.hdr[i-1]=d&&d.d?d:null;softRender()},e=>console.warn(e))));
   watchColl('judges',ds=>{S.judges={};ds.forEach(d=>S.judges[d.id]={...d.data,id:d.id});checkSession()});
 }
 function startRole(){
@@ -265,6 +285,7 @@ function render(){
     <span class="chip"><i></i>${esc(who)}</span><span class="hint" id="savedAt"></span>
     ${exportBtns(s)}
     <button class="btn" data-act="logout">Sign out</button></div>
+    ${hdrHtml('print-only hdrimgs')}
     <div class="print-only print-head"><b>${esc(ev)}</b><div>${esc(viewTitle())}</div>${me&&me.fullName?`<div>Judge: ${esc(me.fullName)}</div>`:''}<div>Printed ${esc(new Date().toLocaleString())}</div></div>
     ${S.mode==='local'?'<div class="msg warn" style="margin:0 0 14px">Demo mode: scores stay in this browser only. Connect Google Sheets (or Firebase) to share scores between judges.</div>':''}
     ${s.role==='admin'?adminView():judgeView()}
@@ -276,7 +297,7 @@ function exportBtns(s){
   if(s.role==='judge')return'<button class="btn" data-act="download">Download</button>';
   if(['elem','hs','jsheet'].includes(S.atab)&&S.cfg)return'<button class="btn" data-act="download">Download</button><button class="btn" data-act="print">Print</button>';
   return''}
-const TABN={setup:'Tabulation Setup',judges:'Judges Setup',elem:'Elementary Category',hs:'Highschool Category',jsheet:'Judges Score Sheet'};
+const TABN={setup:'Tabulation Setup',printing:'Printing Setup',judges:'Judges Setup',elem:'Elementary Category',hs:'Highschool Category',jsheet:'Judges Score Sheet'};
 const SUBN={street:'Street Dance',pilgrims:'Pilgrims Dance',overall:'Overall Scores',awards:'Special Awards',deds:'Deductions'};
 function viewTitle(){
   const s=S.session;if(!s)return'';
@@ -350,8 +371,37 @@ function awardNote(ranks,n){const f=ranks.filter(Boolean);const dup=f.length!==n
 function adminView(){
   const tabs=Object.entries(TABN);
   return`<div class="tabs" role="tablist">${tabs.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${S.atab===k}" data-act="atab" data-v="${k}">${n}</button>`).join('')}</div>
-  ${S.atab==='setup'?setupView():S.atab==='judges'?judgesView():!S.cfg?`<div class="panel empty">Load the score sheet in Tabulation Setup first.</div>`:S.atab==='jsheet'?jsheetView():catAdmin(S.atab)}`}
+  ${S.atab==='setup'?setupView():S.atab==='printing'?printingView():S.atab==='judges'?judgesView():!S.cfg?`<div class="panel empty">Load the score sheet in Tabulation Setup first.</div>`:S.atab==='jsheet'?jsheetView():catAdmin(S.atab)}`}
 
+function hdrHtml(cls){const im=S.hdr.filter(Boolean);if(!im.length)return'';
+  const sum=im.reduce((a,i)=>a+i.w/i.h,0);
+  return`<div class="${cls}" style="--sum:${sum.toFixed(4)};--n:${im.length}">${im.map(i=>`<img src="${i.d}" style="flex:${(i.w/i.h).toFixed(4)} 1 0" alt="">`).join('')}</div>`}
+function printingView(){
+  const slot=i=>{const h=S.hdr[i];return`<div class="hslot"><button class="hbox${h?' has':''}" data-act="hdrpick" data-v="${i}" aria-label="Upload header image ${i+1}">${h?`<img src="${h.d}" alt="Header image ${i+1}">`:`<span>Image ${i+1}<br>+</span>`}</button>
+    ${h?`<div class="hrow"><button class="btn" data-act="hdrpick" data-v="${i}">Replace</button><button class="btn" data-act="hdrdel" data-v="${i}">Remove</button></div>`:''}</div>`};
+  const ev=S.cfg?S.cfg.event:'Street and Pilgrims Dance Competition';
+  const hasAny=S.hdr.some(Boolean);
+  return`<div class="panel"><div class="head"><div><h2>Header images</h2><p>Upload up to four images. They print across the top of every page and are sized to fit the width of the paper.</p></div></div>
+    <div class="hslots">${[0,1,2,3].map(slot).join('')}</div>
+    <input type="file" id="hdrfile" accept="image/*" hidden>
+    ${S.msg?`<div class="msg warn" style="margin-top:12px">${esc(S.msg)}</div>`:''}</div>
+  <div class="panel"><div class="head"><div><h2>Paper preview</h2><p>Landscape A4, the same as Print and Download.</p></div></div>
+    <div class="pwrap"><div class="paper">${hasAny?hdrHtml('hdrimgs'):'<div class="pv-none">Header images appear here</div>'}
+      <div class="pv-ev">${esc(ev)}</div><div class="pv-sub">Elementary Category · Street Dance</div>
+      ${Array.from({length:7},()=>'<div class="pv-row"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>').join('')}</div></div></div>`}
+const MAXIMG=42000;
+function loadImg(file){return new Promise((res,rej)=>{const u=URL.createObjectURL(file);const im=new Image();im.onload=()=>{URL.revokeObjectURL(u);res(im)};im.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('bad'))};im.src=u})}
+async function compressImg(file){
+  const im=await loadImg(file);if(!im.naturalWidth||!im.naturalHeight)throw new Error('bad');
+  let sc=Math.min(1,900/im.naturalWidth,320/im.naturalHeight);
+  for(let k=0;k<10;k++){
+    const w=Math.max(1,Math.round(im.naturalWidth*sc)),h=Math.max(1,Math.round(im.naturalHeight*sc));
+    const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.drawImage(im,0,0,w,h);
+    let d=c.toDataURL('image/png');if(d.length<=MAXIMG)return{d,w,h};
+    x.globalCompositeOperation='destination-over';x.fillStyle='#fff';x.fillRect(0,0,w,h);
+    for(const q of[.88,.74,.6]){d=c.toDataURL('image/jpeg',q);if(d.length<=MAXIMG)return{d,w,h}}
+    sc*=.78}
+  throw new Error('big')}
 function jlabel(j){return j.fullName||j.username}
 function jsheetView(){
   const c=S.jsc,d=S.jsd,js=judgeList().filter(j=>d==='awards'||does(j,d));
@@ -495,7 +545,10 @@ async function downloadPdf(){
   const ev=S.cfg?S.cfg.event:'Street and Pilgrims Dance Competition';
   const me=S.session.role==='judge'?(S.judges[S.session.id]||{}):null;
   let y=M,first=true;
-  const head=()=>{doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text(clean(ev),M,y);y+=15;
+  const head=()=>{const hi=S.hdr.filter(Boolean);
+    if(hi.length){const av=W-2*M,gp=8,sm=hi.reduce((a,i)=>a+i.w/i.h,0),hh=Math.min(113,(av-gp*(hi.length-1))/sm),tw=sm*hh+gp*(hi.length-1);let x=M+(av-tw)/2;
+      hi.forEach(i=>{const w=i.w/i.h*hh;doc.addImage(i.d,i.d.startsWith('data:image/png')?'PNG':'JPEG',x,y,w,hh);x+=w+gp});y+=hh+22}
+    doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text(clean(ev),M,y);y+=15;
     doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text(clean(viewTitle()),M,y);y+=13;
     if(me&&me.fullName){doc.text('Judge: '+clean(me.fullName),M,y);y+=13}
     doc.setFontSize(8);doc.text('Printed '+new Date().toLocaleString(),M,y);y+=6;
@@ -561,6 +614,8 @@ document.addEventListener('click',async e=>{
   else if(a==='asub'){S.asub=v;render()}
   else if(a==='jsc'){S.jsc=v;render()}
   else if(a==='jsd'){S.jsd=v;render()}
+  else if(a==='hdrpick'){S.hslot=+v;const fi=document.getElementById('hdrfile');if(fi)fi.click()}
+  else if(a==='hdrdel'){S.hdr[+v]=null;render();try{await db.doc('config/hdr'+(+v+1)).delete()}catch(err){console.warn(err)}}
   else if(a==='download'){await downloadPdf()}
   else if(a==='print'){const old=document.title;document.title='Voyadores Festival Tabulation - '+viewTitle();const back=()=>{document.title=old;window.removeEventListener('afterprint',back)};window.addEventListener('afterprint',back);window.print()}
   else if(a==='logout'){S.session=null;ls.del('tally.session');S.msg='';unsubAll();S.scores={};S.deds={};S.awards={};startCommon();render()}
@@ -638,6 +693,10 @@ document.addEventListener('input',e=>{
 
 document.addEventListener('change',async e=>{
   const t=e.target;
+  if(t.id==='hdrfile'){const f=t.files&&t.files[0];const i=S.hslot;t.value='';if(!f||i==null)return;
+    try{const o=await compressImg(f);S.hdr[i]=o;S.msg='';render();await db.doc('config/hdr'+(i+1)).set(o);toast('Image '+(i+1)+' saved')}
+    catch(err){console.warn(err);S.msg='That image could not be used. Try a PNG or JPG file.';render()}
+    return}
   if(t.dataset.ded){
     const[c,d,g,i]=t.dataset.ded.split('|');const id=`${c}__${d}`;
     const doc=S.deds[id]||(S.deds[id]={d:{}});doc.d=doc.d||{};doc.d[g]=doc.d[g]||{};
