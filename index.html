@@ -629,8 +629,12 @@ document.addEventListener('submit',async e=>{
   S.msg='';
   try{
     if(u.toLowerCase()===ADMIN.u&&p===ADMIN.p){S.session={role:'admin'};ls.set('tally.session',JSON.stringify(S.session));restart();render();return}
-    const j=judgeList().find(x=>x.username.toLowerCase()===u.toLowerCase());
-    if(!j||j.password!==p){S.msg='Wrong username or password.';render();return}
+    const find=()=>judgeList().find(x=>x.username.toLowerCase()===u.toLowerCase());
+    let j=find();
+    if(!j||j.password!==p){
+      try{const snap=await db.collection('judges').get();const m={};snap.docs.forEach(d=>m[d.id]={...d.data(),id:d.id});S.judges=m}catch(err){console.warn(err);S.msg='Could not reach the database. Check your connection and try again.';render();return}
+      j=find()}
+    if(!j||j.password!==p){S.msg=judgeList().length?'Wrong username or password.':'No judge accounts exist yet. Ask the tabulator to create them in Judges Setup.';render();return}
     const bound=ls.get('tally.bound');
     if(bound&&bound!==j.id){const bj=S.judges[bound];if(bj&&bj.claimedBy===device){S.msg=`This device is locked to ${bj.username}. It cannot sign in to another account.`;render();return}}
     const ref=db.collection('judges').doc(j.id);
