@@ -101,6 +101,10 @@ td input.bad{border-color:var(--bad);background:var(--bad-soft)}
 <div class="toast" id="toast" hidden></div>
 
 <script>
+/* If the main script fails to start, say so instead of staying on "Loading". */
+setTimeout(function(){var a=document.getElementById('app');if(a&&/^Loading/.test(a.textContent)){a.innerHTML='<div style="max-width:460px;margin:10vh auto;padding:20px;border:1px solid #b3261e;border-radius:10px;font-family:system-ui,sans-serif;color:#b3261e;background:#fff5f4"><b>The tabulator could not start.</b><br>Open the browser console (F12) to see the error. The most common cause is a typo in the SHEETS_URL or SHEETS_SECRET lines: each value must be inside quotation marks.</div>'}},6000);
+</script>
+<script>
 (function(){
 'use strict';
 const CATS=[['elem','Elementary'],['hs','High School']];
@@ -462,8 +466,8 @@ document.addEventListener('change',async e=>{
    1) claude.ai artifact: built-in shared database.
    2) GitHub Pages or any host: Firebase Firestore. Paste your web app config below.
    3) No config: demo mode that keeps data in this browser only. */
-const SHEETS_URL=https://script.google.com/macros/s/AKfycbxh_YY7j7IsvbkQrGuXXxkQSzQug2yw2BZiv1IjGSvHV3_f86_mxxgZ4aFJKMxBMV6M/exec;      // Apps Script web app URL ending in /exec
-const SHEETS_SECRET='https://script.google.com/macros/s/AKfycbxh_YY7j7IsvbkQrGuXXxkQSzQug2yw2BZiv1IjGSvHV3_f86_mxxgZ4aFJKMxBMV6M/exec';   // must match SECRET in Code.gs
+const SHEETS_URL="https://script.google.com/macros/s/AKfycbxh_YY7j7IsvbkQrGuXXxkQSzQug2yw2BZiv1IjGSvHV3_f86_mxxgZ4aFJKMxBMV6M/exec";      // Apps Script web app URL ending in /exec
+const SHEETS_SECRET='change-this-secret';   // must match SECRET in Code.gs
 const FIREBASE_CONFIG=null;
 /* Example:
 const FIREBASE_CONFIG={apiKey:"...",authDomain:"...",projectId:"...",appId:"..."};
