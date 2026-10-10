@@ -203,7 +203,7 @@ td input.bad{border-color:var(--bad);background:var(--bad-soft)}
 
 <script>
 /* If the main script fails to start, say so instead of staying on "Loading". */
-setTimeout(function(){var a=document.getElementById('app');if(a&&/^Loading/.test(a.textContent)){a.innerHTML='<div style="max-width:460px;margin:10vh auto;padding:20px;border:1px solid #b3261e;border-radius:10px;font-family:system-ui,sans-serif;color:#b3261e;background:#fff5f4"><b>The tabulator could not start.</b><br>Open the browser console (F12) to see the error. The most common cause is a typo in the SHEETS_URL or SHEETS_SECRET lines: each value must be inside quotation marks.</div>'}},6000);
+setTimeout(function(){var a=document.getElementById('app');if(a&&/^Loading/.test(a.textContent)){a.innerHTML='<div style="max-width:460px;margin:10vh auto;padding:20px;border:1px solid #b3261e;border-radius:10px;font-family:system-ui,sans-serif;color:#b3261e;background:#fff5f4"><b>The tabulator could not start.</b><br>Open the browser console (F12) to see the error. The most common cause is a typo in the FIREBASE_CONFIG block near the end of the file: every value must be inside quotation marks.</div>'}},6000);
 </script>
 <script>
 (function(){
@@ -212,7 +212,8 @@ const CATS=[['elem','Elementary'],['hs','Highschool']];
 const DANCES=[['street','Street Dance'],['pilgrims','Pilgrims Dance']];
 const DEF_AWARDS=()=>[{id:'music',n:'Best in Music'},{id:'costume',n:'Best in Costume'}];
 let AWARDS=DEF_AWARDS().map(a=>[a.id,a.n]);
-const ADMIN={u:'admin',p:'0000'};
+const ADMIN_EMAIL='admin@voyadores.local';   // must match the email in firestore.rules
+const DEMO_PW='0000';   // only used in demo mode (no Firebase). Never used with Firebase.
 
 function defaultCfg(){return{
   event:'Peñafrancia Voyadores Festival Street and Pilgrims Dance Competition 2026',
@@ -245,8 +246,8 @@ function normCfg(c){c=c||{};const dd=defaultCfg().deductions;const d=c.deduction
   AWARDS=c.awards.map(a=>[a.id,a.n||'Award']);return c}
 
 /* ---------- state ---------- */
-const S={confirm:null,jsc:'elem',jsd:'street',mode:'',cfg:null,judges:{},scores:{},deds:{},awards:{},session:null,cat:'elem',sub:'street',hdr:[null,null,null,null],paper:'a4',archive:{},sumYear:null,share:{on:false},fcat:'elem',fsub:'street',atab:'setup',acat:'elem',asub:'street',draft:null,msg:'',ready:false,unsubs:[],pending:{}};
-let db=null;
+const S={confirm:null,jsc:'elem',jsd:'street',mode:'',cfg:null,judges:{},secrets:{},scores:{},deds:{},awards:{},session:null,cat:'elem',sub:'street',hdr:[null,null,null,null],paper:'a4',archive:{},sumYear:null,share:{on:false},fcat:'elem',fsub:'street',atab:'setup',acat:'elem',asub:'street',draft:null,msg:'',ready:false,unsubs:[],pending:{}};
+let db=null,AUTH=null;
 const $app=document.getElementById('app');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ls={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
@@ -264,6 +265,7 @@ const fmt=n=>(Math.round(n*100)/100).toFixed(2);
     if(n.offline){bar.className='netbar off';bar.textContent='Offline mode. Your scores are saved on this device and will update the tally when you are back online.'+(p?` (${p} change${p>1?'s':''} waiting)`:'');bar.hidden=false}
     else if(p){bar.className='netbar sync';bar.textContent=`Back online. Updating the tally… (${p})`;bar.hidden=false}
     else bar.hidden=true}
+  window.addEventListener('writefail',e=>{const c=String((e.detail&&e.detail.code)||'');toast(c==='permission-denied'?'Not saved. Sign out, then sign in again with your current password.':'A change was not saved: '+explainErr(e.detail))});
   window.addEventListener('netchange',upd);
   window.addEventListener('synced',()=>{upd();toast('Back online. Tally updated.')});
 })();
@@ -272,6 +274,7 @@ const catName=c=>CATS.find(x=>x[0]===c)[1];
 const nG=c=>Math.max(0,+(S.cfg&&S.cfg.contingents[c])||0);
 const crit=d=>S.cfg.criteria[d]||[];
 const maxTotal=d=>crit(d).reduce((a,c)=>a+(+c.max||0),0);
+const pwOf=j=>{const s=S.secrets[j.id];return s&&s.pw!==undefined?s.pw:(j.password||'')};
 const judgeList=()=>Object.values(S.judges).sort((a,b)=>a.n-b.n);
 const does=(j,d)=>d==='street'?j.street!==false:d==='pilgrims'?j.pilgrims!==false:true;
 function rankIn(vals,v){return 1+vals.filter(x=>r2(x)>r2(v)).length}
@@ -295,15 +298,17 @@ function watchColl(name,onDocs,q){
   const ref=q?q(db.collection(name)):db.collection(name);
   S.unsubs.push(ref.onSnapshot(snap=>{onDocs(snap.docs.map(d=>({id:d.id,data:d.data()})));softRender()},e=>{console.warn(name,e)}))}
 function startCommon(){
-  S.unsubs.push(db.doc('config/main').onSnapshot(s=>{S.cfg=s.exists?normCfg(s.data()):null;S.draft=null;softRender()},e=>console.warn(e)));
+  S.unsubs.push(db.doc('config/main').onSnapshot(s=>{if(window.__dbErr){window.__dbErr=null}S.cfg=s.exists?normCfg(s.data()):null;S.draft=null;softRender()},e=>{console.warn(e);window.__dbErr=explainErr(e);window.dispatchEvent(new Event('dberr'))}));
   [1,2,3,4].forEach(i=>S.unsubs.push(db.doc('config/hdr'+i).onSnapshot(s=>{const d=s.exists?s.data():null;S.hdr[i-1]=d&&d.d?d:null;softRender()},e=>console.warn(e))));
   S.unsubs.push(db.doc('config/paper').onSnapshot(s=>{const d=s.exists?s.data():null;S.paper=d&&d.size==='long'?'long':'a4';softRender()},e=>console.warn(e)));
   S.unsubs.push(db.doc('config/share').onSnapshot(s=>{S.share=s.exists?s.data():{on:false};if(!S.share)S.share={on:false};softRender()},e=>console.warn(e)));
   watchColl('judges',ds=>{S.judges={};ds.forEach(d=>S.judges[d.id]={...d.data,id:d.id});checkSession()});
+  if(S.mode!=='firebase')watchColl('secrets',ds=>{S.secrets={};ds.forEach(d=>S.secrets[d.id]=d.data)});
 }
 function startRole(){
   const s=S.session;if(!s)return;
   if(s.role==='admin'){
+    if(S.mode==='firebase')watchColl('secrets',ds=>{S.secrets={};ds.forEach(d=>S.secrets[d.id]=d.data)});
     watchColl('scores',ds=>{keepPending(ds)});
     watchColl('deductions',ds=>{S.deds={};ds.forEach(d=>S.deds[d.id]=d.data)});
     watchColl('awards',ds=>{keepAwards(ds)});
@@ -356,7 +361,7 @@ function render(){
     <button class="btn" data-act="logout">Sign out</button></div>
     ${hdrHtml('print-only hdrimgs')}
     <div class="print-only print-head"><b>${esc(ev)}</b><div>${esc(viewTitle())}</div>${me&&me.fullName?`<div>Judge: ${esc(me.fullName)}</div>`:''}<div>Printed ${esc(new Date().toLocaleString())}</div></div>
-    ${S.mode==='local'?'<div class="msg warn" style="margin:0 0 14px">Demo mode: scores stay in this browser only. Connect Google Sheets (or Firebase) to share scores between judges.</div>':''}
+    ${S.mode==='local'?'<div class="msg warn" style="margin:0 0 14px">Demo mode: scores stay in this browser only. Connect Firebase to share scores between judges.</div>':''}
     ${s.role==='admin'?adminView():judgeView()}
     ${s.role==='admin'&&(S.atab==='elem'||S.atab==='hs')?`<div class="print-only sig">${judgeList().map(j=>`<div>${esc(j.fullName||j.username)}<br>Judge ${j.n}</div>`).join('')}<div>Tabulator</div></div>`:''}
     ${s.role==='judge'?`<div class="print-only sig"><div>${esc(me.fullName||me.username||'')}<br>Judge signature</div></div>`:''}
@@ -617,7 +622,29 @@ function setupView(){
      <p class="hint" style="margin:8px 0">Removing an award also removes the ranks judges already entered for it, once you press Save and publish.</p>
      <button class="btn sm" data-act="addaward">Add award</button></div>
    <div class="panel"><div class="row"><button class="btn pri" data-act="savecfg">Save and publish to judges</button><span class="hint">Judges see the new score sheet right away. Scores already entered are kept.</span></div>
-   <hr style="border:0;border-top:1px solid var(--line);margin:16px 0"><div class="row"><button class="btn bad" data-act="clearscores" id="clearBtn">Clear all scores, ranks and deductions</button><span class="hint">Starts a fresh event. Judge accounts stay.</span></div></div>`}
+   <hr style="border:0;border-top:1px solid var(--line);margin:16px 0"><div class="row"><button class="btn bad" data-act="clearscores" id="clearBtn">Clear all scores, ranks and deductions</button><span class="hint">Starts a fresh event. Judge accounts stay.</span></div></div>${dataPanels()}`}
+function dataPanels(){
+  return`<div class="panel"><div class="head"><div><h2>Backup and restore</h2><p>Download everything (setup, judge accounts and passwords, scores, awards, deductions and the yearly archive) as one file. Keep it somewhere safe, because it contains the judges' passwords. Restore adds and overwrites records from a backup file. It does not delete anything.</p></div></div>
+   <div class="row"><button class="btn pri" data-act="backup">Download backup</button><label class="btn" style="cursor:pointer">Restore from backup file<input type="file" accept="application/json,.json" id="restoreFile" style="display:none"></label></div></div>
+  ${S.mode==='firebase'?`<div class="panel"><div class="head"><div><h2>Admin password</h2><p>Change the tabulator password. Use at least 8 characters.</p></div></div>
+   <div class="row"><div class="field" style="width:190px"><label for="cpcur">Current password</label><input type="password" id="cpcur" autocomplete="current-password"></div><div class="field" style="width:190px"><label for="cpnew">New password</label><input type="password" id="cpnew" autocomplete="new-password"></div><div class="field" style="width:190px"><label for="cpnew2">Repeat new password</label><input type="password" id="cpnew2" autocomplete="new-password"></div><button class="btn pri" data-act="changepw" style="align-self:end">Change password</button></div></div>`:''}`}
+const BK_COLLS=['config','judges','secrets','scores','awards','deductions','archive'];
+async function doBackup(){
+  const out={app:'voyadores-tally',version:1,made:new Date().toISOString(),data:{}};
+  for(const c of BK_COLLS){const snap=await db.collection(c).get();out.data[c]={};snap.docs.forEach(d=>out.data[c][d.id]=d.data())}
+  const blob=new Blob([JSON.stringify(out)],{type:'application/json'});const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download='Voyadores-Backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
+  toast('Backup downloaded')}
+async function doRestore(file){
+  let o;try{o=JSON.parse(await file.text())}catch(e){toast('That file is not a backup');return}
+  if(!o||o.app!=='voyadores-tally'||!o.data){toast('That file is not a Voyadores backup');return}
+  const n=BK_COLLS.reduce((a,c)=>a+Object.keys(o.data[c]||{}).length,0);
+  if(!confirm(`Restore ${n} records from the backup made ${o.made?new Date(o.made).toLocaleString():'(date unknown)'}?\n\nRecords with the same name are overwritten.`))return;
+  for(const c of BK_COLLS)for(const [id,d] of Object.entries(o.data[c]||{}))await db.collection(c).doc(id).set(d);
+  toast(`Restored ${n} records`)}
+document.addEventListener('change',async e=>{
+  if(e.target.id==='restoreFile'){const f=e.target.files[0];e.target.value='';if(f){try{await doRestore(f)}catch(err){console.warn(err);toast('Restore failed: '+explainErr(err))}}}});
+
 function updateSums(){if(!S.draft)return;DANCES.forEach(([k])=>{const e=document.querySelector(`[data-sum="${k}"]`);if(!e)return;const s=S.draft.criteria[k].reduce((a,c)=>a+(+c.max||0),0),w=+S.draft.weights[k]||0;e.textContent=`Total ${s}% of ${w}%`;e.className='pill '+(s===w?'ok':'warn');const sc=document.querySelector(`[data-sumcell="${k}"]`);if(sc)sc.textContent=s+'%'})}
 
 function jScoreKeys(id,d){return Object.keys(S.scores).filter(k=>k.startsWith(id+'__')&&(!d||(S.scores[k]&&S.scores[k].dance===d)))}
@@ -639,6 +666,7 @@ async function applyAssign(ns,np){
     if(!pl&&does(j,'pilgrims'))await clearJudgeDance(j.id,'pilgrims');
     await db.collection('judges').doc(j.id).update({street:st,pilgrims:pl})}));
   toast(`${ns} judges on Street Dance, ${np} on Pilgrims Dance`);render()}
+function newPw(){const al='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',a=new Uint32Array(6);crypto.getRandomValues(a);return Array.from(a,x=>al[x%al.length]).join('')}
 function judgesView(){
   const js=judgeList();
   const prog=j=>{if(!S.cfg)return'';return''};
@@ -648,7 +676,7 @@ function judgesView(){
   ${js.length?`<div class="row" style="margin:0 0 14px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface2)"><div class="field" style="width:160px"><label for="ns">Street Dance judges</label><input type="number" id="ns" min="0" max="30" value="${js.filter(j=>does(j,'street')).length}"></div><div class="field" style="width:160px"><label for="np">Pilgrims Dance judges</label><input type="number" id="np" min="0" max="30" value="${js.filter(j=>does(j,'pilgrims')).length}"></div><button class="btn pri" data-act="applycounts" style="align-self:end">Apply</button><span class="hint" style="flex:1;min-width:220px">Judges are assigned in order. 3 and 9 means Judge1 to Judge3 score both dances and Judge4 to Judge9 score Pilgrims Dance only. Tick the boxes below to pick different judges.</span></div>
   <div class="scroll"><table><thead><tr><th>#</th><th>Name</th><th>Username</th><th>Password</th><th>Street Dance</th><th>Pilgrims Dance</th><th>Status</th><th>Scores entered</th><th></th></tr></thead><tbody>
   ${js.map(j=>`<tr><td>${j.n}</td><td style="text-align:left">${j.fullName?esc(j.fullName):'<span class="hint">not entered</span>'}</td><td><input class="jin" type="text" value="${esc(j.username)}" data-ju="${j.id}" style="width:130px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 8px" aria-label="Username for judge ${j.n}"></td>
-   <td><input class="jin" type="text" value="${esc(j.password)}" data-jp="${j.id}" style="width:100px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 8px" aria-label="Password for judge ${j.n}"></td>
+   <td><input class="jin" type="text" value="${esc(pwOf(j))}" data-jp="${j.id}" style="width:100px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 8px" aria-label="Password for judge ${j.n}"></td>
    <td><input type="checkbox" ${does(j,'street')?'checked':''} data-jdance="${j.id}|street" aria-label="Judge ${j.n} scores Street Dance"></td><td><input type="checkbox" ${does(j,'pilgrims')?'checked':''} data-jdance="${j.id}|pilgrims" aria-label="Judge ${j.n} scores Pilgrims Dance"></td>
    <td>${j.claimedBy?'<span class="pill bad">In use</span>':'<span class="pill ok">Available</span>'}</td>
    <td class="num">${scoresEntered(j.id)}</td>
@@ -746,30 +774,49 @@ document.addEventListener('submit',async e=>{
   const u=document.getElementById('lu').value.trim(),p=document.getElementById('lp').value;
   const btn=document.getElementById('lbtn');btn.disabled=true;
   S.msg='';
+  const FB=S.mode==='firebase',off=()=>!!(window.__net&&window.__net.offline);
+  const enter=sess=>{S.session=sess;ls.set('tally.session',JSON.stringify(sess));S.cat='elem';S.sub='street';restart();render()};
+  const hashOf=async(id)=>{try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(device+'|'+id+'|'+p));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')}catch(err){return null}};
   try{
-    if(u.toLowerCase()===ADMIN.u&&p===ADMIN.p){S.session={role:'admin'};ls.set('tally.session',JSON.stringify(S.session));restart();render();return}
+    if(u.toLowerCase()==='admin'){
+      if(FB){if(off()){S.msg='You are offline. The tabulator must sign in with a connection.';render();return}await AUTH.adminIn(p);device=AUTH.uid();enter({role:'admin'});return}
+      if(p===DEMO_PW){enter({role:'admin'});return}
+      S.msg='Wrong username or password.';render();return}
     const find=()=>judgeList().find(x=>x.username.toLowerCase()===u.toLowerCase());
+    const bad=j=>!j||(!FB&&pwOf(j)!==p);
+    const refresh=async()=>{const snap=await db.collection('judges').get();const m={};snap.docs.forEach(d=>m[d.id]={...d.data(),id:d.id});S.judges=m;
+      if(!FB){const sn=await db.collection('secrets').get();const s2={};sn.docs.forEach(d=>s2[d.id]=d.data());S.secrets=s2}};
     let j=find();
-    if(!j||j.password!==p){
-      try{const snap=await db.collection('judges').get();const m={};snap.docs.forEach(d=>m[d.id]={...d.data(),id:d.id});S.judges=m}catch(err){console.warn(err);if(!(window.__net&&window.__net.offline)){S.msg='Could not reach the database: '+explainErr(err);render();return}}
+    if(bad(j)){
+      try{await refresh()}catch(err){console.warn(err);if(!off()){S.msg='Could not reach the database: '+explainErr(err);render();return}}
       j=find()}
-    if(!j||j.password!==p){S.msg=judgeList().length?'Wrong username or password.':'No judge accounts exist yet. Ask the tabulator to create them in Judges Setup.';render();return}
+    if(bad(j)){S.msg=judgeList().length?'Wrong username or password.':'No judge accounts exist yet. Ask the tabulator to create them in Judges Setup.';render();return}
+    if(FB&&AUTH.uid())device=AUTH.uid();
     const bound=ls.get('tally.bound');
     if(bound&&bound!==j.id){const bj=S.judges[bound];if(bj&&bj.claimedBy===device){S.msg=`This device is locked to ${bj.username}. It cannot sign in to another account.`;render();return}}
-    if(window.__net&&window.__net.offline){
-      if(bound===j.id&&j.claimedBy===device){S.session={role:'judge',id:j.id};ls.set('tally.session',JSON.stringify(S.session));S.cat='elem';S.sub='street';restart();render();return}
+    if(off()){
+      let ok=bound===j.id&&j.claimedBy===device;
+      if(ok&&FB){let st=null;try{st=JSON.parse(ls.get('tally.pwh')||'null')}catch(err){}const h=await hashOf(j.id);ok=!!(st&&h&&st.id===j.id&&st.h===h)}
+      if(ok){enter({role:'judge',id:j.id});return}
       S.msg='You are offline. A judge account must be signed in once with a connection before it can work offline.';render();return}
-    const ref=db.collection('judges').doc(j.id);
-    const lease=await ref.acquire({holder:device,ttlMs:4000});
-    if(!lease.acquired){S.msg='Another sign-in is in progress. Try again in a few seconds.';render();return}
-    const snap=await ref.get();const cur=snap.data()||{};
-    if(cur.claimedBy&&cur.claimedBy!==device){S.msg='This account is already in use on another device. Ask the tabulator to release it.';render();return}
-    if(!cur.claimedBy)await ref.update({claimedBy:device,claimedAt:Date.now()});
+    if(FB){
+      await AUTH.anon();device=AUTH.uid();
+      try{await AUTH.verify(j.id,p)}catch(err){if(err&&err.code==='permission-denied'){S.msg=judgeList().length?'Wrong username or password.':'No judge accounts exist yet.';render();return}throw err}
+      const cur=(await db.collection('judges').doc(j.id).get()).data()||{};
+      if(cur.claimedBy&&cur.claimedBy!==device){S.msg='This account is already in use on another device. Ask the tabulator to release it.';render();return}
+      if(!cur.claimedBy){try{await AUTH.claim(j.id)}catch(err){if(err&&err.code==='permission-denied'){S.msg='This account is already in use on another device. Ask the tabulator to release it.';render();return}throw err}}
+      const h=await hashOf(j.id);if(h)ls.set('tally.pwh',JSON.stringify({id:j.id,h}));
+    }else{
+      const ref=db.collection('judges').doc(j.id);
+      const lease=await ref.acquire({holder:device,ttlMs:4000});
+      if(!lease.acquired){S.msg='Another sign-in is in progress. Try again in a few seconds.';render();return}
+      const cur=(await ref.get()).data()||{};
+      if(cur.claimedBy&&cur.claimedBy!==device){S.msg='This account is already in use on another device. Ask the tabulator to release it.';render();return}
+      if(!cur.claimedBy)await ref.update({claimedBy:device,claimedAt:Date.now()});
+    }
     ls.set('tally.bound',j.id);
-    S.session={role:'judge',id:j.id};ls.set('tally.session',JSON.stringify(S.session));
-    S.cat='elem';S.sub='street';
-    restart();render();
-  }catch(err){console.warn(err);S.msg=(window.__net&&window.__net.offline)?'You are offline. A judge account must be signed in once with a connection before it can work offline.':'Sign-in failed: '+explainErr(err);render()}
+    enter({role:'judge',id:j.id});
+  }catch(err){console.warn(err);S.msg=off()?'You are offline. A judge account must be signed in once with a connection before it can work offline.':(FB&&/^auth\//.test(String(err&&err.code))&&!/network|too-many|operation|api-key/.test(String(err.code))?'Wrong username or password. (First time? Create the admin user in Firebase > Authentication.)':'Sign-in failed: '+explainErr(err));render()}
   finally{const b=document.getElementById('lbtn');if(b)b.disabled=false}
 });
 
@@ -805,7 +852,7 @@ document.addEventListener('click',async e=>{
   else if(a==='hdrdel'){S.hdr[+v]=null;render();try{await db.doc('config/hdr'+(+v+1)).delete()}catch(err){console.warn(err)}}
   else if(a==='download'){await downloadPdf()}
   else if(a==='print'){const old=document.title;document.title='Voyadores Festival Tabulation - '+viewTitle();const back=()=>{document.title=old;window.removeEventListener('afterprint',back)};window.addEventListener('afterprint',back);window.print()}
-  else if(a==='logout'){S.session=null;ls.del('tally.session');S.msg='';unsubAll();S.scores={};S.deds={};S.awards={};startCommon();render()}
+  else if(a==='logout'){const wasAdmin=S.session&&S.session.role==='admin';S.session=null;ls.del('tally.session');S.msg='';unsubAll();S.scores={};S.deds={};S.awards={};if(AUTH&&wasAdmin){S.secrets={};try{await AUTH.out();await AUTH.anon();device=AUTH.uid()}catch(err){console.warn(err)}}startCommon();render()}
   else if(a==='loaddefaults'){await db.doc('config/main').set(defaultCfg());toast('Festival defaults loaded')}
   else if(a==='addcrit'){S.draft.criteria[v].push({n:'New criterion',max:5});render()}
   else if(a==='adddd'){S.draft.deductions[v].push({id:'n'+Date.now().toString(36),n:'New deduction',pts:1});render()}
@@ -826,10 +873,16 @@ document.addEventListener('click',async e=>{
     if(!t.dataset.armed){t.dataset.armed=1;t.textContent='Press again to confirm. This cannot be undone';setTimeout(()=>{if(t.isConnected){delete t.dataset.armed;t.textContent='Clear all scores, ranks and deductions'}},4000);return}
     for(const coll of ['scores','deductions','awards']){const snap=await db.collection(coll).get();await Promise.all(snap.docs.map(d=>db.collection(coll).doc(d.id).delete()))}
     S.scores={};S.deds={};S.awards={};toast('All scores cleared');render()}
+  else if(a==='backup'){try{await doBackup()}catch(err){console.warn(err);toast('Backup failed: '+explainErr(err))}}
+  else if(a==='changepw'){
+    const cur=document.getElementById('cpcur').value,n1=document.getElementById('cpnew').value,n2=document.getElementById('cpnew2').value;
+    if(n1.length<8){toast('Use at least 8 characters');return}
+    if(n1!==n2){toast('The two new passwords do not match');return}
+    try{await AUTH.changePw(cur,n1);['cpcur','cpnew','cpnew2'].forEach(i=>{document.getElementById(i).value=''});toast('Admin password changed')}catch(err){console.warn(err);toast(/invalid-credential|wrong-password/.test(String(err&&err.code))?'Current password is wrong':explainErr(err))}}
   else if(a==='makejudges'){
     const n=Math.max(1,Math.min(30,+document.getElementById('jn').value||0));
     const have=judgeList();
-    const jobs=[];for(let i=1;i<=n;i++){const id='j'+i;if(!S.judges[id])jobs.push(db.collection('judges').doc(id).set({n:i,username:'Judge'+i,password:String(i).repeat(4),claimedBy:null,street:true,pilgrims:true}))}await Promise.all(jobs);
+    const jobs=[];for(let i=1;i<=n;i++){const id='j'+i;if(!S.judges[id]){jobs.push(db.collection('secrets').doc(id).set({pw:newPw()}));jobs.push(db.collection('judges').doc(id).set({n:i,username:'Judge'+i,claimedBy:null,street:true,pilgrims:true}))}}await Promise.all(jobs);
     const extra=have.filter(j=>j.n>n);
     S.msg=extra.length?`${extra.length} account(s) above ${n} were kept. Delete them below if you do not need them.`:'';
     toast(`${n} judge accounts ready`);render()}
@@ -846,7 +899,7 @@ document.addEventListener('click',async e=>{
     await releaseJudge(v)}
   else if(a==='deljudge'){
     if(!t.dataset.armed){t.dataset.armed=1;t.textContent='Confirm';setTimeout(()=>{if(t.isConnected){delete t.dataset.armed;t.textContent='Delete'}},3000);return}
-    await db.collection('judges').doc(v).delete();toast('Judge deleted')}
+    await db.collection('judges').doc(v).delete();await db.collection('secrets').doc(v).delete();toast('Judge deleted')}
 });
 
 document.addEventListener('input',e=>{
@@ -915,7 +968,7 @@ document.addEventListener('change',async e=>{
     const id=t.dataset.ju||t.dataset.jp,f=t.dataset.ju?'username':'password',val=t.value.trim();
     if(!val){toast('This field cannot be empty');render();return}
     if(f==='username'&&judgeList().some(j=>j.id!==id&&j.username.toLowerCase()===val.toLowerCase())){toast('Another judge already has that username');render();return}
-    await db.collection('judges').doc(id).update({[f]:val});toast('Saved')}
+    if(f==='password')await db.collection('secrets').doc(id).set({pw:val});else await db.collection('judges').doc(id).update({[f]:val});toast('Saved')}
 });
 
 /* ---------- boot ---------- */
@@ -923,104 +976,62 @@ document.addEventListener('change',async e=>{
    1) claude.ai artifact: built-in shared database.
    2) GitHub Pages or any host: Firebase Firestore. Paste your web app config below.
    3) No config: demo mode that keeps data in this browser only. */
-const SHEETS_URL="https://script.google.com/macros/s/AKfycbxh_YY7j7IsvbkQrGuXXxkQSzQug2yw2BZiv1IjGSvHV3_f86_mxxgZ4aFJKMxBMV6M/exec";      // Apps Script web app URL ending in /exec
-const SHEETS_SECRET='change-this-secret';   // must match SECRET in Code.gs
-const FIREBASE_CONFIG=null;
+const FIREBASE_CONFIG={apiKey:"AIzaSyBIwQO-sh2h_dhM4_lrkJb1BsBmxPMhMV0",authDomain:"voyadores-tally.firebaseapp.com",projectId:"voyadores-tally",storageBucket:"voyadores-tally.firebasestorage.app",messagingSenderId:"303764231041",appId:"1:303764231041:web:69fee2d172c7f966774e80"};
 /* Example:
 const FIREBASE_CONFIG={apiKey:"...",authDomain:"...",projectId:"...",appId:"..."};
 */
 function loadScript(src){return new Promise((res,rej)=>{const e=document.createElement('script');e.src=src;e.onload=res;e.onerror=rej;document.head.appendChild(e)})}
 async function firebaseDb(){
-  const v='10.12.2';
-  await loadScript(`https://www.gstatic.com/firebasejs/${v}/firebase-app-compat.js`);
-  await loadScript(`https://www.gstatic.com/firebasejs/${v}/firebase-firestore-compat.js`);
+  const v='10.12.2',base=`https://www.gstatic.com/firebasejs/${v}/`;
+  await loadScript(base+'firebase-app-compat.js');
+  await Promise.all([loadScript(base+'firebase-auth-compat.js'),loadScript(base+'firebase-firestore-compat.js')]);
   firebase.initializeApp(FIREBASE_CONFIG);
-  const fs=firebase.firestore();
-  const wrapDoc=ref=>new Proxy(ref,{get(t,k){
-    if(k==='acquire')return async({holder,ttlMs=4000})=>fs.runTransaction(async tx=>{
-      const snap=await tx.get(t);const d=snap.exists?snap.data():{};const now=Date.now();
-      if(d._leaseUntil>now&&d._leaseHolder!==holder)return{acquired:false};
-      tx.set(t,{_leaseUntil:now+ttlMs,_leaseHolder:holder},{merge:true});return{acquired:true}});
-    const x=t[k];return typeof x==='function'?x.bind(t):x}});
-  const wrapColl=c=>new Proxy(c,{get(t,k){
-    if(k==='doc')return id=>wrapDoc(t.doc(id));
-    const x=t[k];return typeof x==='function'?x.bind(t):x}});
-  return{collection:n=>wrapColl(fs.collection(n)),doc:p=>wrapDoc(fs.doc(p))};
+  const auth=firebase.auth(),fs=firebase.firestore();
+  try{await fs.enablePersistence({synchronizeTabs:true})}catch(e){console.warn('offline storage unavailable',e&&e.code)}
+  /* offline banner: offline = browser says so; pending = writes not yet confirmed by the server */
+  const net=window.__net={offline:typeof navigator!=='undefined'&&navigator.onLine===false,pending:0,had:false};
+  const evt=n=>window.dispatchEvent(new Event(n));
+  window.addEventListener('online',()=>{net.offline=false;evt('netchange')});
+  window.addEventListener('offline',()=>{net.offline=true;evt('netchange')});
+  function track(p){
+    net.pending++;if(net.offline)net.had=true;evt('netchange');
+    p.then(()=>{net.pending--;evt('netchange');if(!net.pending&&net.had){net.had=false;evt('synced')}},
+      e=>{net.pending--;evt('netchange');console.warn('write failed',e);window.dispatchEvent(new CustomEvent('writefail',{detail:e}))})}
+  const clean=x=>JSON.parse(JSON.stringify(x));
+  const docRef=r=>({id:r.id,
+    get:()=>r.get(),
+    async set(x){track(r.set(clean(x)))},
+    async update(x){track(r.update(clean(x)))},
+    async delete(){track(r.delete())},
+    async acquire(){return{acquired:true}},
+    onSnapshot:(n,e)=>r.onSnapshot(n,e)});
+  const query=q=>({where:(f,o,x)=>query(q.where(f,o,x)),get:()=>q.get(),onSnapshot:(n,e)=>q.onSnapshot(n,e)});
+  const timeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(Object.assign(new Error('timeout'),{code:'unavailable'})),ms))]);
+  const A={
+    ready:()=>new Promise(r=>{const off=auth.onAuthStateChanged(u=>{off();r(u)})}),
+    uid:()=>auth.currentUser&&auth.currentUser.uid,
+    isAdmin:()=>{const u=auth.currentUser;return !!u&&!u.isAnonymous&&u.email===ADMIN_EMAIL},
+    async anon(){if(!auth.currentUser)await auth.signInAnonymously();return auth.currentUser.uid},
+    async adminIn(pw){await timeout(auth.signInWithEmailAndPassword(ADMIN_EMAIL,pw),15000)},
+    async out(){await auth.signOut()},
+    async changePw(cur,nw){const u=auth.currentUser;await u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(ADMIN_EMAIL,cur));await u.updatePassword(nw)},
+    /* step 1: prove the password (rules compare it with the secret). step 2: take the account if it is free. */
+    async verify(j,pw){await timeout(fs.doc('devices/'+auth.currentUser.uid).set({judge:j,pw,t:Date.now()}),15000)},
+    async claim(j){await timeout(fs.doc('judges/'+j).update({claimedBy:auth.currentUser.uid,claimedAt:Date.now()}),15000)}
+  };
+  return{auth:A,db:{collection:n=>({...query(fs.collection(n)),doc:id=>docRef(fs.collection(n).doc(id))}),doc:p=>docRef(fs.doc(p))}};
 }
 function explainErr(e){
-  const m=String((e&&e.message)||e||'');
-  if(/unauthori[sz]ed/i.test(m))return'The secret in this page does not match SECRET in Code.gs. Make them identical, then redeploy the script as a new version.';
-  if(/Failed to fetch|NetworkError|Load failed/i.test(m))return'The browser could not reach the Apps Script link. Check the internet connection, that SHEETS_URL is the link ending in /exec, and that the Web app is deployed with access set to Anyone.';
-  if(/Unexpected token|JSON|<!DOCTYPE/i.test(m))return'The Web app answered with a Google page instead of data. Deploy it as Execute as: Me, Who has access: Anyone, then use the new /exec link.';
+  const c=String((e&&e.code)||''),m=String((e&&e.message)||e||'');
+  if(c==='permission-denied')return'Firebase refused this request. Publish firestore.rules in Firebase (Firestore Database > Rules) as described in the setup guide.';
+  if(/operation-not-allowed|admin-restricted/.test(c))return'Turn on Anonymous and Email/Password sign-in in Firebase (Authentication > Sign-in method).';
+  if(/wrong-password|invalid-credential|user-not-found|invalid-login/.test(c))return'Wrong username or password.';
+  if(c==='auth/too-many-requests')return'Too many attempts. Wait a few minutes and try again.';
+  if(/network-request-failed|unavailable/.test(c)||/Failed to fetch|NetworkError|Load failed|timeout/i.test(m))return'Could not reach Firebase. Check the internet connection.';
+  if(/api-key|invalid-api/.test(c))return'The Firebase config pasted into this page is not valid.';
+  if(c==='auth/requires-recent-login')return'Please sign out, sign in again and retry.';
+  if(c==='auth/weak-password')return'Use a longer password (at least 8 characters).';
   return m||'Unknown error';}
-function sheetsDb(url,secret){
-  const cache={},subs=[];let seq=0,timer=null,polling=false,loaded=false,flushing=false,persistT=null;
-  let queue=[];try{queue=JSON.parse(ls.get('tally.queue')||'[]')||[]}catch(e){queue=[]}
-  const net=window.__net={offline:typeof navigator!=='undefined'&&navigator.onLine===false,pending:queue.length};
-  try{const c=JSON.parse(ls.get('tally.cache')||'null');if(c&&typeof c==='object'&&Object.keys(c).length){Object.assign(cache,c);loaded=true}}catch(e){}
-  const persist=()=>{clearTimeout(persistT);persistT=setTimeout(()=>ls.set('tally.cache',JSON.stringify(cache)),300)};
-  const saveQ=()=>{ls.set('tally.queue',JSON.stringify(queue));net.pending=queue.length};
-  const netEvt=()=>window.dispatchEvent(new Event('netchange'));
-  const setOff=off=>{if(net.offline!==off){net.offline=off;netEvt()}};
-  const isNetErr=e=>e&&(e.name==='TypeError'||e.name==='SyntaxError'||/Failed to fetch|NetworkError|Load failed/i.test(e.message||''));
-  async function post(body){
-    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({secret,...body})});
-    const j=await r.json();if(!j.ok)throw new Error(j.error||'request failed');return j}
-  const sig=o=>JSON.stringify(o);
-  function view(sub){
-    if(sub.kind==='doc'){const v=(cache[sub.coll]||{})[sub.id];return v===undefined?{id:sub.id,exists:false,data:()=>undefined}:{id:sub.id,exists:true,data:()=>JSON.parse(JSON.stringify(v))}}
-    const docs=Object.keys(cache[sub.coll]||{}).map(id=>({id,data:()=>JSON.parse(JSON.stringify(cache[sub.coll][id]))})).filter(d=>!sub.flt||d.data()[sub.flt[0]]===sub.flt[2]);
-    return{docs}}
-  function sigOf(sub){if(sub.kind==='doc')return sig((cache[sub.coll]||{})[sub.id]);const v=view(sub);return sig(v.docs.map(d=>[d.id,d.data()]))}
-  function notify(force){subs.slice().forEach(s=>{if(!loaded)return;const g=sigOf(s);if(force||g!==s.last){s.last=g;s.next(view(s))}})}
-  async function flush(){
-    if(flushing||!queue.length)return;flushing=true;const had=queue.length;let drained=false;
-    try{
-      while(queue.length){
-        try{await post(queue[0])}
-        catch(e){
-          if(isNetErr(e)){setOff(true);break}
-          if(/unauthori[sz]ed/i.test(e.message||'')){window.__dbErr=explainErr(e);break}
-          console.warn('dropping rejected change',queue[0],e)}
-        queue.shift();saveQ();setOff(false);netEvt()}
-      drained=!queue.length;
-    }finally{flushing=false;netEvt()}
-    if(drained){seq++;window.__dbErr=null;if(had)window.dispatchEvent(new CustomEvent('synced',{detail:had}));poll()}}
-  async function poll(){
-    if(polling||!subs.length)return;
-    if(queue.length||flushing){flush();return}
-    polling=true;const start=seq;
-    try{
-      const colls=[...new Set(subs.map(s=>s.coll))];
-      const res=await post({op:'dump',colls});
-      setOff(false);
-      if(seq!==start||queue.length||flushing){polling=false;if(!queue.length&&!flushing)setTimeout(poll,300);return}
-      colls.forEach(c=>cache[c]=res.data[c]||{});loaded=true;persist();notify(false);
-      window.__dbErr=null;
-    }catch(e){console.warn('poll',e);if(isNetErr(e))setOff(true);const had=window.__dbErr;window.__dbErr=explainErr(e);if(had!==window.__dbErr)window.dispatchEvent(new Event('dberr'))}
-    polling=false}
-  function ensureTimer(){if(timer)return;timer=setInterval(()=>{if(!document.hidden)poll()},3500);
-    document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll()});
-    window.addEventListener('online',()=>{flush();poll()});window.addEventListener('offline',()=>setOff(true))}
-  function addSub(s){subs.push(s);ensureTimer();if(loaded)setTimeout(()=>{if(subs.includes(s)){s.last=sigOf(s);s.next(view(s))}},0);setTimeout(poll,0);
-    return()=>{const i=subs.indexOf(s);if(i>=0)subs.splice(i,1)}}
-  const local=(coll,id,fn)=>{seq++;cache[coll]=cache[coll]||{};fn(cache[coll]);persist();notify(false)};
-  const enqueue=op=>{queue.push(op);saveQ();netEvt();flush()};
-  const docRef=(coll,id)=>({id,
-    async get(){const r=await post({op:'get',coll,id});return{id,exists:r.exists,data:()=>r.data||undefined}},
-    async set(v){const d=JSON.parse(JSON.stringify(v));local(coll,id,c=>c[id]=d);enqueue({op:'set',coll,id,data:d})},
-    async update(v){const d=JSON.parse(JSON.stringify(v));local(coll,id,c=>{if(c[id])Object.assign(c[id],d)});enqueue({op:'update',coll,id,data:d})},
-    async delete(){local(coll,id,c=>{delete c[id]});enqueue({op:'delete',coll,id})},
-    async acquire({holder,ttlMs=4000}){const r=await post({op:'acquire',coll,id,holder,ttlMs});return{acquired:r.acquired}},
-    onSnapshot(next){return addSub({kind:'doc',coll,id,next,last:undefined})}});
-  const query=(coll,flt)=>({
-    where:(f,o,v)=>query(coll,[f,o,v]),
-    async get(){let m;try{const r=await post({op:'dump',colls:[coll]});m=r.data[coll]||{};setOff(false)}catch(e){if(isNetErr(e)&&loaded){setOff(true);m=cache[coll]||{}}else throw e}
-      return{docs:Object.keys(m).map(id=>({id,data:()=>JSON.parse(JSON.stringify(m[id]))})).filter(d=>!flt||d.data()[flt[0]]===flt[2])}},
-    onSnapshot(next){return addSub({kind:'coll',coll,flt,next,last:undefined})}});
-  if(queue.length)setTimeout(flush,800);
-  return{collection:n=>({...query(n),doc:id=>docRef(n,id)}),doc:p=>{const[c,i]=p.split('/');return docRef(c,i)}};
-}
 function localDb(){
   const KEY='tally.local';const subs=[];
   const load=()=>{try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return{}}};
@@ -1043,13 +1054,16 @@ function localDb(){
 }
 async function getBackend(){
   try{if(window.claude&&claude.use){const d=await claude.use('db');if(d)return{db:d,mode:'claude'}}}catch(e){}
-  if(SHEETS_URL)return{db:sheetsDb(SHEETS_URL,SHEETS_SECRET),mode:'sheets'};
-  if(FIREBASE_CONFIG){try{return{db:await firebaseDb(),mode:'firebase'}}catch(e){console.warn(e)}}
+  if(FIREBASE_CONFIG){const f=await firebaseDb();return{db:f.db,auth:f.auth,mode:'firebase'}}
   return{db:localDb(),mode:'local'}
 }
 async function boot(){
-  const b=await getBackend();db=b.db;S.mode=b.mode;
+  let b;
+  try{b=await getBackend()}catch(err){console.warn(err);$app.innerHTML='<div class="login"><div class="ina"><div class="msg bad">Could not start: '+esc(explainErr(err))+'</div><p class="hint">Check the Firebase config in this page and the internet connection, then reload.</p></div></div>';return}
+  db=b.db;AUTH=b.auth||null;S.mode=b.mode;
+  if(AUTH){try{const u=await AUTH.ready();if(!u)await AUTH.anon()}catch(e){console.warn(e)}device=AUTH.uid()||device}
   try{const raw=ls.get('tally.session');if(raw)S.session=JSON.parse(raw)}catch(e){}
+  if(AUTH&&S.session&&((S.session.role==='admin')!==AUTH.isAdmin())){S.session=null;ls.del('tally.session')}
   startCommon();startRole();render();
 }
 boot();
