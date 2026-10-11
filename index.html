@@ -380,15 +380,17 @@ function render(){
 function fitPins(){const r=document.documentElement.style;const go=()=>{const b=$app.querySelector('.bar'),t=$app.querySelector('.tabs:not(.sub)');r.setProperty('--barh',b?b.offsetHeight+'px':'0px');r.setProperty('--tabh',t?t.offsetHeight+'px':'0px')};go();setTimeout(go,60)}
 window.addEventListener('resize',()=>{if(S.session)fitPins()});
 function dlLabel(s){
-  if(s.role==='judge'){if(S.cat==='final')return'Download Overall Final Score';return S.sub==='overall'?`Download all ${catName(S.cat)} Category`:`Download ${catName(S.cat)} ${SUBN[S.sub]}`}
-  if(S.atab==='elem'||S.atab==='hs')return S.asub==='overall'?`Download all ${TABN[S.atab]}`:`Download ${catName(S.atab)} ${SUBN[S.asub]}`;
+  if(s.role==='judge'){if(S.cat==='final')return'Download Overall Final Score';return`Download ${catName(S.cat)} ${SUBN[S.sub]}`}
+  if(S.atab==='elem'||S.atab==='hs')return`Download ${catName(S.atab)} ${SUBN[S.asub]}`;
   if(S.atab==='jsheet')return`Download ${catName(S.jsc)} ${SUBN[S.jsd]} Judges Score Sheets`;
   if(S.atab==='summary')return'Download Summary';
   return'Download'}
 function exportBtns(s){
   if(S.mode==='claude')return'';
-  if(s.role==='judge')return`<button class="btn" data-act="download">${esc(dlLabel(s))}</button>`;
-  if((['elem','hs','jsheet'].includes(S.atab)&&S.cfg)||(S.atab==='summary'&&S.sumYear&&S.archive[S.sumYear]))return`<button class="btn" data-act="download">${esc(dlLabel(s))}</button>`;
+  const one=`<button class="btn" data-act="download" data-v="one">${esc(dlLabel(s))}</button>`,all='<button class="btn" data-act="download" data-v="all">Download all score results</button>';
+  if(s.role==='judge'){if(S.cat==='final')return one;return S.sub==='overall'?all:all+one}
+  if((S.atab==='elem'||S.atab==='hs')&&S.cfg)return S.asub==='overall'?all:all+one;
+  if((['jsheet'].includes(S.atab)&&S.cfg)||(S.atab==='summary'&&S.sumYear&&S.archive[S.sumYear]))return one;
   return''}
 const TABN={summary:'Summary',setup:'Tabulation Setup',printing:'Printing Setup',judges:'Judges Setup',elem:'Elementary Category',hs:'Highschool Category',jsheet:'Judges Score Sheet'};
 const SUBN={street:'Street Dance',pilgrims:'Pilgrims Dance',overall:'Overall Scores',awards:'Special Awards',deds:'Deductions',jded:'Judges Deduction'};
@@ -761,9 +763,9 @@ function loadLib(src){return new Promise((res,rej)=>{const e=document.createElem
 async function pdfLibs(){
   if(!(window.jspdf&&window.jspdf.jsPDF))await loadLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
   if(!(window.jspdf&&window.jspdf.jsPDF.API.autoTable))await loadLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js')}
-async function downloadPdf(){
+async function downloadPdf(all){
   const s0=S.session;
-  const all=(s0.role==='judge'&&S.cat!=='final'&&S.sub==='overall')||(s0.role==='admin'&&(S.atab==='elem'||S.atab==='hs')&&S.asub==='overall');
+  all=!!all&&((s0.role==='judge'&&S.cat!=='final')||(s0.role==='admin'&&(S.atab==='elem'||S.atab==='hs')));
   const cat=s0.role==='judge'?S.cat:S.atab;
   const ttl=all?`${catName(cat)} Category · All`:viewTitle();
   let host=null;
@@ -902,7 +904,7 @@ document.addEventListener('click',async e=>{
     try{await db.collection('archive').doc(String(v)).delete();toast(`${v} deleted`)}catch(err){console.warn(err)}}
   else if(a==='hdrpick'){S.hslot=+v;const fi=document.getElementById('hdrfile');if(fi)fi.click()}
   else if(a==='hdrdel'){S.hdr[+v]=null;render();try{await db.doc('config/hdr'+(+v+1)).delete()}catch(err){console.warn(err)}}
-  else if(a==='download'){await downloadPdf()}
+  else if(a==='download'){await downloadPdf(v==='all')}
   else if(a==='print'){const old=document.title;document.title='Voyadores Festival Tabulation - '+viewTitle();const back=()=>{document.title=old;window.removeEventListener('afterprint',back)};window.addEventListener('afterprint',back);window.print()}
   else if(a==='logout'){const wasAdmin=S.session&&S.session.role==='admin';S.session=null;ls.del('tally.session');S.msg='';unsubAll();S.scores={};S.deds={};S.awards={};if(AUTH&&wasAdmin){S.secrets={};try{await AUTH.out();await AUTH.anon();device=AUTH.uid()}catch(err){console.warn(err)}}startCommon();render()}
   else if(a==='loaddefaults'){await db.doc('config/main').set(defaultCfg());toast('Festival defaults loaded')}
