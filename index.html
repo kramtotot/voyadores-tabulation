@@ -381,14 +381,14 @@ function render(){
 function fitPins(){const r=document.documentElement.style;const go=()=>{const b=$app.querySelector('.bar'),t=$app.querySelector('.tabs:not(.sub)');r.setProperty('--barh',b?b.offsetHeight+'px':'0px');r.setProperty('--tabh',t?t.offsetHeight+'px':'0px')};go();setTimeout(go,60)}
 window.addEventListener('resize',()=>{if(S.session)fitPins()});
 function dlLabel(s){
-  if(s.role==='judge'){if(S.cat==='final')return'Download Overall Final Score';return S.sub==='overall'?`Download ${catName(S.cat)} Category Scoresheets`:`Download ${catName(S.cat)} ${SUBN[S.sub]}`}
+  if(s.role==='judge'){if(S.cat==='final')return S.fall?'Download all Overall Final Scoresheets':`Download ${catName(S.fcat||'elem')} ${SUBN[S.fsub||'street']} (Final)`;return S.sub==='overall'?`Download ${catName(S.cat)} Category Scoresheets`:`Download ${catName(S.cat)} ${SUBN[S.sub]}`}
   if(S.atab==='elem'||S.atab==='hs')return S.asub==='overall'?`Download ${catName(S.atab)} Category Scoresheets`:`Download ${catName(S.atab)} ${SUBN[S.asub]}`;
   if(S.atab==='jsheet')return`Download ${catName(S.jsc)} ${SUBN[S.jsd]} Judges Score Sheets`;
   if(S.atab==='summary')return'Download Summary';
   return'Download'}
 function exportBtns(s){
   if(S.mode==='claude')return'';
-  const all=(s.role==='judge'&&S.cat!=='final'&&S.sub==='overall')||((S.atab==='elem'||S.atab==='hs')&&S.asub==='overall');
+  const all=(s.role==='judge'&&(S.cat==='final'?!!S.fall:S.sub==='overall'))||((S.atab==='elem'||S.atab==='hs')&&S.asub==='overall');
   const one=`<button class="btn" data-act="download" data-v="${all?'all':'one'}">${esc(dlLabel(s))}</button>`;
   if(s.role==='judge')return one;
   if((['elem','hs','jsheet'].includes(S.atab)&&S.cfg)||(S.atab==='summary'&&S.sumYear&&S.archive[S.sumYear]))return one;
@@ -766,15 +766,16 @@ async function pdfLibs(){
   if(!(window.jspdf&&window.jspdf.jsPDF.API.autoTable))await loadLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js')}
 async function downloadPdf(all){
   const s0=S.session;
-  all=!!all&&((s0.role==='judge'&&S.cat!=='final')||(s0.role==='admin'&&(S.atab==='elem'||S.atab==='hs')));
+  all=!!all&&(s0.role==='judge'||(s0.role==='admin'&&(S.atab==='elem'||S.atab==='hs')));
   const cat=s0.role==='judge'?S.cat:S.atab;
-  const ttl=all?`${catName(cat)} Category · All`:viewTitle();
+  const fin=s0.role==='judge'&&S.cat==='final';
+  const ttl=all?(fin?'Overall Final Score · All':`${catName(cat)} Category · All`):viewTitle();
   let host=null;
   try{
     if(all){
       host=document.createElement('div');host.style.cssText='position:absolute;left:-99999px;top:0;width:1200px';
       const jid=s0.id,jme=S.judges[jid]||{};
-      const parts=s0.role==='judge'?[...(does(jme,'street')?[judgeSheet(jid,cat,'street')]:[]),...(does(jme,'pilgrims')?[judgeSheet(jid,cat,'pilgrims')]:[]),judgeOverall(jid,cat),judgeAwards(jid,cat)]
+      const parts=fin?CATS.filter(([k])=>S.share&&S.share.cats&&S.share.cats[k]).flatMap(([k])=>['street','pilgrims','overall','awards','deds'].map(sb=>snapView(S.share,k,sb,''))):s0.role==='judge'?[...(does(jme,'street')?[judgeSheet(jid,cat,'street')]:[]),...(does(jme,'pilgrims')?[judgeSheet(jid,cat,'pilgrims')]:[]),judgeOverall(jid,cat),judgeAwards(jid,cat)]
         :[adminDance(cat,'street'),adminDance(cat,'pilgrims'),adminOverall(cat),adminAwards(cat),adminDeds(cat),adminJDeds(cat)];
       host.innerHTML=parts.join('');document.body.appendChild(host);
       host.querySelectorAll('table[data-sheet]').forEach(t=>{const[c,d]=t.dataset.sheet.split('|');refreshSheet(c,d,host)})}
@@ -879,10 +880,10 @@ window.addEventListener('dberr',()=>{if(S.session)return;const u=document.getEle
 document.addEventListener('click',async e=>{
   const t=e.target.closest('[data-act]');if(!t)return;
   const a=t.dataset.act,v=t.dataset.v;
-  if(a==='cat'){S.cat=v;if(v!=='final')S.sub='overall';render()}
+  if(a==='cat'){S.cat=v;if(v!=='final')S.sub='overall';else S.fall=true;render()}
   else if(a==='sub'){S.sub=v;render()}
-  else if(a==='fcat'){S.fcat=v;render()}
-  else if(a==='fsub'){S.fsub=v;render()}
+  else if(a==='fcat'){S.fcat=v;S.fall=false;render()}
+  else if(a==='fsub'){S.fsub=v;S.fall=false;render()}
   else if(a==='sect'){S.last=S.last||{};S.last[sectOf(S.atab)]=S.atab;S.atab=(S.last[v])||(v==='setup'?'setup':v==='summary'?'summary':'elem');if(v==='scores'&&(S.atab==='elem'||S.atab==='hs'))S.asub='overall';S.msg='';S.confirm=null;render()}
   else if(a==='atab'){if(v==='elem'||v==='hs')S.asub='overall';S.atab=v;S.msg='';S.confirm=null;render()}
   else if(a==='asub'){S.asub=v;render()}
