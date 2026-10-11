@@ -50,7 +50,8 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 .btn.sm{padding:3px 10px;font-size:13px}
 .btn:disabled{opacity:.5;cursor:default}
 :focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;padding:8px 0;position:sticky;top:calc(var(--nb,0px) + var(--barh,64px));z-index:4;background:var(--bg)}
+.tabs.sub{top:calc(var(--nb,0px) + var(--barh,64px) + var(--tabh,52px))}
 .tab{border:1px solid transparent;background:transparent;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:600;color:var(--muted)}
 .tab[aria-selected="true"]{background:var(--navy);color:var(--navy-ink)}
 .tab:not([aria-selected="true"]):hover{border-color:var(--line);color:var(--ink)}
@@ -213,6 +214,7 @@ const DANCES=[['street','Street Dance'],['pilgrims','Pilgrims Dance']];
 const DEF_AWARDS=()=>[{id:'music',n:'Best in Music'},{id:'costume',n:'Best in Costume'}];
 let AWARDS=DEF_AWARDS().map(a=>[a.id,a.n]);
 const ADMIN_EMAIL='admin@voyadores.local';   // must match the email in firestore.rules
+const COPY='\u00A9 2014 Zara Tabulation Team. All rights reserved.';
 const DEMO_PW='0000';   // only used in demo mode (no Firebase). Never used with Firebase.
 
 function defaultCfg(){return{
@@ -223,7 +225,8 @@ function defaultCfg(){return{
     street:[['Faithfulness to the Theme & Peñafrancia Devotion',10],['Choreography & Street Dance Execution',10],['Musicality, Rhythm, and Coordination',8],['Costume, Visual Impact, and Overall Presentation',6],['Energy, Discipline, Formation, and Audience Engagement',6]].map(([n,max])=>({n,max})),
     pilgrims:[['Spiritual Interpretation & Devotional Impact',20],['Choreography, Storytelling, & Artistic Interpretation',15],['Technical Performance & Execution',10],['Musical Composition & Dramatic Integration',8],['Costume, Production Design, & Visual Excellence',7]].map(([n,max])=>({n,max}))
   },
-  deductions:{street:DED(),pilgrims:DED()}
+  deductions:{street:DED(),pilgrims:DED()},
+  jcrit:{street:[],pilgrims:[]}
 }}
 function DED(){return[
     ['Insufficient number of performers (less than 60), or exceeding the maximum (over 100)',1],
@@ -241,6 +244,7 @@ function normCfg(c){c=c||{};const dd=defaultCfg().deductions;const d=c.deduction
   if(Array.isArray(d)){c.deductions={street:JSON.parse(JSON.stringify(d)),pilgrims:JSON.parse(JSON.stringify(d))}}
   else if(!d){c.deductions=dd}else{c.deductions.street=c.deductions.street||dd.street;c.deductions.pilgrims=c.deductions.pilgrims||dd.pilgrims}
   ['street','pilgrims'].forEach(k=>c.deductions[k].forEach((x,i)=>{if(!x.id)x.id='d'+i}));
+  if(!c.jcrit)c.jcrit={street:[],pilgrims:[]};['street','pilgrims'].forEach(k=>{if(!Array.isArray(c.jcrit[k]))c.jcrit[k]=[]});
   if(!Array.isArray(c.awards))c.awards=DEF_AWARDS();
   c.awards.forEach((a,i)=>{if(!a.id)a.id='a'+i});
   AWARDS=c.awards.map(a=>[a.id,a.n||'Award']);return c}
@@ -275,17 +279,22 @@ const nG=c=>Math.max(0,+(S.cfg&&S.cfg.contingents[c])||0);
 const crit=d=>S.cfg.criteria[d]||[];
 const maxTotal=d=>crit(d).reduce((a,c)=>a+(+c.max||0),0);
 const pwOf=j=>{const s=S.secrets[j.id];return s&&s.pw!==undefined?s.pw:(j.password||'')};
-const judgeList=()=>Object.values(S.judges).sort((a,b)=>a.n-b.n);
+const allJudges=()=>Object.values(S.judges).sort((a,b)=>a.n-b.n);
+const judgeList=()=>allJudges().filter(j=>!j.ded);
+const dedJudge=()=>Object.values(S.judges).find(j=>j.ded)||null;
+const jcrit=d=>(S.cfg&&S.cfg.jcrit&&S.cfg.jcrit[d])||[];
+const critOf=(j,d)=>j&&j.ded?jcrit(d):crit(d);
 const does=(j,d)=>d==='street'?j.street!==false:d==='pilgrims'?j.pilgrims!==false:true;
 function rankIn(vals,v){return 1+vals.filter(x=>r2(x)>r2(v)).length}
 
 /* ---------- scoring ---------- */
 const sid=(j,c,d)=>`${j}__${c}__${d}`;
 function cell(j,c,d,g,ci){const doc=S.scores[sid(j,c,d)];const v=doc&&doc.v&&doc.v[g]&&doc.v[g][ci];return v===undefined||v===null||v===''?null:+v}
-function judgeTotal(j,c,d,g){let t=0,any=false;crit(d).forEach((_,ci)=>{const v=cell(j,c,d,g,ci);if(v!==null){t+=v;any=true}});return any?t:null}
+function judgeTotal(j,c,d,g){let t=0,any=false;critOf(S.judges[j],d).forEach((_,ci)=>{const v=cell(j,c,d,g,ci);if(v!==null){t+=v;any=true}});return any?t:null}
 function avgCrit(c,d,g,ci){const vs=judgeList().filter(j=>does(j,d)).map(j=>cell(j.id,c,d,g,ci)).filter(v=>v);return vs.length?vs.reduce((a,b)=>a+b,0)/vs.length:0}
 function dedPts(c,d,g){const m=(S.deds[`${c}__${d}`]||{}).d||{};const row=m[g]||{};return (S.cfg.deductions[d]||[]).reduce((a,it)=>a+(row[it.id]?(+it.pts||0):0),0)}
-function danceFinal(c,d,g){const sub=crit(d).reduce((a,_,ci)=>a+avgCrit(c,d,g,ci),0);return{sub,ded:dedPts(c,d,g),final:Math.max(0,sub-dedPts(c,d,g))}}
+function jdedPts(c,d,g){const dj=dedJudge();return dj?(judgeTotal(dj.id,c,d,g)||0):0}
+function danceFinal(c,d,g){const sub=crit(d).reduce((a,_,ci)=>a+avgCrit(c,d,g,ci),0);const ded=dedPts(c,d,g)+jdedPts(c,d,g);return{sub,ded,final:Math.max(0,sub-ded)}}
 function table(c,d){const rows=[];for(let g=1;g<=nG(c);g++){const f=danceFinal(c,d,g);rows.push({g,avgs:crit(d).map((_,ci)=>avgCrit(c,d,g,ci)),...f})}const all=rows.map(r=>r.final);rows.forEach(r=>r.rank=rankIn(all,r.final));return rows}
 function overall(c){const st=table(c,'street'),pl=table(c,'pilgrims');const rows=st.map((s,i)=>({g:s.g,street:s.final,pilgrims:pl[i].final,total:s.final+pl[i].final}));const all=rows.map(r=>r.total);rows.forEach(r=>r.rank=rankIn(all,r.total));return rows}
 function awardRank(j,c,a,g){const d=S.awards[`${j}__${c}__${a}`];const v=d&&d.ranks&&d.ranks[g];return v?+v:null}
@@ -365,15 +374,24 @@ function render(){
     ${s.role==='admin'?adminView():judgeView()}
     ${s.role==='admin'&&(S.atab==='elem'||S.atab==='hs')?`<div class="print-only sig">${judgeList().map(j=>`<div>${esc(j.fullName||j.username)}<br>Judge ${j.n}</div>`).join('')}<div>Tabulator</div></div>`:''}
     ${s.role==='judge'?`<div class="print-only sig"><div>${esc(me.fullName||me.username||'')}<br>Judge signature</div></div>`:''}
-    <footer class="appfoot">© ${new Date().getFullYear()} Zara Tabulation Team</footer>`;
+    <footer class="appfoot">${COPY}</footer>`;
+  fitPins();
 }
+function fitPins(){const r=document.documentElement.style;const go=()=>{const b=$app.querySelector('.bar'),t=$app.querySelector('.tabs:not(.sub)');r.setProperty('--barh',b?b.offsetHeight+'px':'0px');r.setProperty('--tabh',t?t.offsetHeight+'px':'0px')};go();setTimeout(go,60)}
+window.addEventListener('resize',()=>{if(S.session)fitPins()});
+function dlLabel(s){
+  if(s.role==='judge'){if(S.cat==='final')return'Download Overall Final Score';return S.sub==='overall'?`Download all ${catName(S.cat)} Category`:`Download ${catName(S.cat)} ${SUBN[S.sub]}`}
+  if(S.atab==='elem'||S.atab==='hs')return S.asub==='overall'?`Download all ${TABN[S.atab]}`:`Download ${catName(S.atab)} ${SUBN[S.asub]}`;
+  if(S.atab==='jsheet')return`Download ${catName(S.jsc)} ${SUBN[S.jsd]} Judges Score Sheets`;
+  if(S.atab==='summary')return'Download Summary';
+  return'Download'}
 function exportBtns(s){
   if(S.mode==='claude')return'';
-  if(s.role==='judge')return'<button class="btn" data-act="download">Download</button>';
-  if((['elem','hs','jsheet'].includes(S.atab)&&S.cfg)||(S.atab==='summary'&&S.sumYear&&S.archive[S.sumYear]))return'<button class="btn" data-act="download">Download</button>';
+  if(s.role==='judge')return`<button class="btn" data-act="download">${esc(dlLabel(s))}</button>`;
+  if((['elem','hs','jsheet'].includes(S.atab)&&S.cfg)||(S.atab==='summary'&&S.sumYear&&S.archive[S.sumYear]))return`<button class="btn" data-act="download">${esc(dlLabel(s))}</button>`;
   return''}
 const TABN={summary:'Summary',setup:'Tabulation Setup',printing:'Printing Setup',judges:'Judges Setup',elem:'Elementary Category',hs:'Highschool Category',jsheet:'Judges Score Sheet'};
-const SUBN={street:'Street Dance',pilgrims:'Pilgrims Dance',overall:'Overall Scores',awards:'Special Awards',deds:'Deductions'};
+const SUBN={street:'Street Dance',pilgrims:'Pilgrims Dance',overall:'Overall Scores',awards:'Special Awards',deds:'Deductions',jded:'Judges Deduction'};
 function viewTitle(){
   const s=S.session;if(!s)return'';
   if(s.role==='judge'&&S.cat==='final')return'Overall Final Score';
@@ -391,14 +409,14 @@ function loginView(){return`<div class="loginbg" aria-hidden="true"><i class="s7
    <button class="btn pri" type="submit" id="lbtn">Sign in</button></form>
   ${S.msg?`<div class="msg bad">${esc(S.msg)}</div>`:window.__net&&window.__net.offline?`<div class="msg warn">You are offline. Judges already signed in on this device can continue, and scores update the tally when you are back online.</div>`:window.__dbErr?`<div class="msg bad">Database problem: ${esc(window.__dbErr)}</div>`:''}
   ${S.mode==='local'?'<div class="msg warn">Demo mode: data stays in this browser only.</div>':''}
-  <p class="hint" style="margin-bottom:0">A judge account works on one device only. If you are locked out, ask the tabulator to release it.</p></div></div><footer class="appfoot loginfoot">© ${new Date().getFullYear()} Zara Tabulation Team</footer>`}
+  <p class="hint" style="margin-bottom:0">A judge account works on one device only. If you are locked out, ask the tabulator to release it.</p></div></div><footer class="appfoot loginfoot">${COPY}</footer>`}
 
 /* ---- judge ---- */
 function judgeView(){
   if(!S.cfg)return`<div class="panel empty">The tabulator has not published a score sheet yet.</div>`;
   const j=S.session.id;
   const me0=S.judges[j]||{};
-  const subs=[['street','Street Dance'],['pilgrims','Pilgrims Dance'],['overall','Overall Scores'],['awards','Special Awards']].filter(x=>!['street','pilgrims'].includes(x[0])||does(me0,x[0]));
+  const subs=[['street','Street Dance'],['pilgrims','Pilgrims Dance'],['overall','Overall Scores'],['awards','Special Awards']].filter(x=>!me0.ded||x[0]==='street'||x[0]==='pilgrims').filter(x=>!['street','pilgrims'].includes(x[0])||does(me0,x[0]));
   if(!subs.some(x=>x[0]===S.sub))S.sub=subs[0][0];
   const sub=S.sub;
   const shareOn=sharedOn();if(S.cat==='final'&&!shareOn)S.cat='elem';
@@ -409,21 +427,22 @@ function judgeView(){
   ${sub==='street'||sub==='pilgrims'?judgeSheet(j,S.cat,sub):sub==='overall'?judgeOverall(j,S.cat):judgeAwards(j,S.cat)}`}`}
 
 function judgeSheet(j,c,d){
-  const cr=crit(d),n=nG(c),w=S.cfg.weights[d];
-  let h=`<div class="panel"><div class="head"><div><h2>${catName(c)} · ${DANCES.find(x=>x[0]===d)[1]}</h2><p class="no-print">Enter your score for each criterion. Half points are allowed. Scores save automatically.</p></div><span class="pill">${w}% of total</span></div>
-  <div class="scroll"><table data-sheet="${c}|${d}"><thead><tr><th>Group</th>${cr.map(x=>`<th>${esc(x.n)} <span class="mono">(${x.max}%)</span></th>`).join('')}<th>Final Score<br><span class="mono">/ ${maxTotal(d)}</span></th><th>Rank</th></tr></thead><tbody>`;
+  const jd=!!(S.judges[j]||{}).ded,cr=critOf(S.judges[j],d),n=nG(c),w=S.cfg.weights[d],mx=cr.reduce((a,x)=>a+(+x.max||0),0);
+  if(jd&&!cr.length)return`<div class="panel"><div class="head"><div><h2>${catName(c)} · ${DANCES.find(x=>x[0]===d)[1]} · Deductions</h2></div></div><div class="empty">The tabulator has not added deduction criteria yet.</div></div>`;
+  let h=`<div class="panel"><div class="head"><div><h2>${catName(c)} · ${DANCES.find(x=>x[0]===d)[1]}${jd?' · Deductions':''}</h2><p class="no-print">${jd?'Enter the points to deduct for each criterion. Leave a box empty for no deduction. Half points are allowed. Entries save automatically.':'Enter your score for each criterion. Half points are allowed. Scores save automatically.'}</p></div><span class="pill">${jd?'Comes off the final score':w+'% of total'}</span></div>
+  <div class="scroll"><table data-sheet="${c}|${d}"><thead><tr><th>Group</th>${cr.map(x=>`<th>${esc(x.n)} <span class="mono">(${jd?'max '+x.max:x.max+'%'})</span></th>`).join('')}<th>${jd?'Total deducted':'Final Score'}<br><span class="mono">/ ${mx}</span></th>${jd?'':'<th>Rank</th>'}</tr></thead><tbody>`;
   for(let g=1;g<=n;g++){
-    h+=`<tr data-g="${g}"><td>Group ${g}</td>${cr.map((x,ci)=>{const v=cell(j,c,d,g,ci);return`<td><input type="number" inputmode="decimal" min="0" max="${x.max}" step="0.5" value="${v===null?'':v}" data-cell="${g}|${ci}" data-max="${x.max}" aria-label="Group ${g}, ${esc(x.n)}"></td>`}).join('')}<td class="tot num" data-tot></td><td class="rank" data-rank></td></tr>`}
+    h+=`<tr data-g="${g}"><td>Group ${g}</td>${cr.map((x,ci)=>{const v=cell(j,c,d,g,ci);return`<td><input type="number" inputmode="decimal" min="0" max="${x.max}" step="0.5" value="${v===null?'':v}" data-cell="${g}|${ci}" data-max="${x.max}" aria-label="Group ${g}, ${esc(x.n)}"></td>`}).join('')}<td class="tot num" data-tot></td>${jd?'':'<td class="rank" data-rank></td>'}</tr>`}
   h+=`</tbody></table></div>${n===0?'<div class="empty">No contingents set up for this category.</div>':''}</div>`;
   setTimeout(()=>refreshSheet(c,d),0);
   return h}
 
-function refreshSheet(c,d){
-  const t=document.querySelector(`table[data-sheet="${c}|${d}"]`);if(!t)return;
+function refreshSheet(c,d,root){
+  const t=(root||document).querySelector(`table[data-sheet="${c}|${d}"]`);if(!t)return;
   const j=S.session.id;const tots=[];
   t.querySelectorAll('tbody tr').forEach(tr=>{const g=tr.dataset.g;const v=judgeTotal(j,c,d,g);tots.push(v);tr.querySelector('[data-tot]').textContent=v===null?'':fmt(v)});
   const filled=tots.filter(v=>v!==null);
-  t.querySelectorAll('tbody tr').forEach((tr,i)=>{const v=tots[i];const rk=tr.querySelector('[data-rank]');rk.innerHTML=v===null?'':`<b>${rankIn(filled,v)}</b>`;tr.classList.toggle('r1',v!==null&&rankIn(filled,v)===1)})}
+  t.querySelectorAll('tbody tr').forEach((tr,i)=>{const v=tots[i];const rk=tr.querySelector('[data-rank]');if(!rk)return;rk.innerHTML=v===null?'':`<b>${rankIn(filled,v)}</b>`;tr.classList.toggle('r1',v!==null&&rankIn(filled,v)===1)})}
 
 function judgeOverall(j,c){
   const me=S.judges[j]||{};const n=nG(c);const rows=[];
@@ -592,6 +611,10 @@ function jsAwards(j,c){
   ${rows.map(g=>`<tr><td>Group ${g}</td>${AWARDS.map(([a])=>{const r=awardRank(j.id,c,a,g);return`<td class="num">${r||''}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>
   <div class="print-only sig"><div>${esc(jlabel(j))}<br>Judge signature</div></div></div>`}
 
+function jcritPanel(d){
+  const J=d.jcrit||(d.jcrit={street:[],pilgrims:[]});
+  return`<div class="panel"><div class="head"><div><h2>Judge Deduction Criteria</h2><p>Criteria scored by the deduction judge. For each group the judge enters points to deduct, up to the maximum shown. The total comes off that group's final score for the dance.</p></div></div>
+  ${DANCES.map(([k,n])=>{const L=J[k]||(J[k]=[]);return`<h3 class="sect">${n}</h3>${L.length?`<div class="scroll"><table class="crit bordered"><thead><tr><th>#</th><th style="text-align:left">Deduction criterion</th><th>Max points to deduct</th><th></th></tr></thead><tbody>${L.map((x,i)=>`<tr><td class="num">${i+1}</td><td><input type="text" value="${esc(x.n)}" data-jn="${k}|${i}" aria-label="Deduction criterion name"></td><td><input type="number" min="0" step="0.5" value="${x.max}" data-jm="${k}|${i}" aria-label="Maximum points to deduct"></td><td><button class="btn sm bad" data-act="deljcrit" data-v="${k}|${i}">Remove</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="hint">No criteria yet.</div>'}<div style="margin:8px 0 14px"><button class="btn sm" data-act="addjcrit" data-v="${k}">Add criterion</button></div>`}).join('')}</div>`}
 function setupView(){
   if(!S.cfg)return`<div class="panel"><div class="head"><div><h2>Create the score sheet</h2><p>Start from the 2026 festival criteria, then change anything you need.</p></div></div><button class="btn gold" data-act="loaddefaults">Load festival defaults</button></div>`;
   const d=S.draft||(S.draft=JSON.parse(JSON.stringify(S.cfg)));
@@ -615,6 +638,7 @@ function setupView(){
    <div class="grid"><div class="field" style="grid-column:1/-1"><label for="ev">Event name</label><input id="ev" value="${esc(d.event)}" data-ev></div>
    ${CATS.map(([k,n])=>`<div class="field"><label for="ct-${k}">${n} contingents</label><input type="number" id="ct-${k}" min="0" max="40" value="${d.contingents[k]}" data-ct="${k}"></div>`).join('')}</div></div>
    ${critTable('street')}${critTable('pilgrims')}
+    ${jcritPanel(d)}
     <div class="panel"><div class="head"><div><h2>Special Awards</h2><p>Each judge ranks every group for each award, 1 being the best. The award with the lowest average rank wins.</p></div></div>
      ${d.awards.length?`<div class="scroll"><table class="crit bordered"><thead><tr><th>#</th><th style="text-align:left">Award name</th><th></th></tr></thead><tbody>
      ${d.awards.map((x,i)=>`<tr><td class="num">${i+1}</td><td><input type="text" value="${esc(x.n)}" data-an="${i}" aria-label="Award name"></td><td><button class="btn sm bad" data-act="delaward" data-v="${i}">Remove</button></td></tr>`).join('')}
@@ -681,23 +705,27 @@ function judgesView(){
    <td>${j.claimedBy?'<span class="pill bad">In use</span>':'<span class="pill ok">Available</span>'}</td>
    <td class="num">${scoresEntered(j.id)}</td>
    <td><div class="row" style="justify-content:center"><button class="btn sm" data-act="releasekeep" data-v="${j.id}" ${j.claimedBy?'':'disabled'} title="Let another device sign in. Scores and name are kept.">Release</button><button class="btn sm bad" data-act="release" data-v="${j.id}" title="Let another device sign in and clear this judge's scores and name.">Release &amp; clear</button><button class="btn sm bad" data-act="deljudge" data-v="${j.id}">Delete</button></div></td></tr>`).join('')}</tbody></table></div>
-  <p class="hint">Judges with a box unticked do not see that dance and are left out of its average. Default logins are Judge1 with 1111, Judge2 with 2222, and so on. Edit a field and leave it to save.</p>`:`<div class="empty">No judge accounts yet. Enter how many judges can join and press Create accounts.</div>`}</div>
-  ${S.msg?`<div class="msg warn">${esc(S.msg)}</div>`:''}`}
+  <p class="hint">Judges with a box unticked do not see that dance and are left out of its average. Each account gets a random password. Give every judge their own username and password. Edit a field and leave it to save.</p>`:`<div class="empty">No judge accounts yet. Enter how many judges can join and press Create accounts.</div>`}</div>
+  ${S.msg?`<div class="msg warn">${esc(S.msg)}</div>`:''}${dedJudgePanel()}`}
+function dedJudgePanel(){
+  const dj=dedJudge();
+  return`<div class="panel"><div class="head"><div><h2>Deduction judge</h2><p>One extra account that only enters the Judge Deduction Criteria (set in Tabulation Setup). It is not part of the judges' averages.</p></div>${dj?'':'<button class="btn pri" data-act="makeded">Create deduction judge</button>'}</div>
+  ${dj?`<div class="scroll"><table><thead><tr><th>Name</th><th>Username</th><th>Password</th><th>Status</th><th>Entries</th><th></th></tr></thead><tbody><tr><td style="text-align:left">${dj.fullName?esc(dj.fullName):'<span class="hint">not entered</span>'}</td><td><input class="jin" type="text" value="${esc(dj.username)}" data-ju="${dj.id}" style="width:130px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 8px" aria-label="Deduction judge username"></td><td><input class="jin" type="text" value="${esc(pwOf(dj))}" data-jp="${dj.id}" style="width:100px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 8px" aria-label="Deduction judge password"></td><td>${dj.claimedBy?'<span class="pill bad">In use</span>':'<span class="pill ok">Available</span>'}</td><td class="num">${countScores(dj.id)}</td><td><div class="row" style="justify-content:center"><button class="btn sm" data-act="releasekeep" data-v="${dj.id}" ${dj.claimedBy?'':'disabled'}>Release</button><button class="btn sm bad" data-act="release" data-v="${dj.id}">Release &amp; clear</button><button class="btn sm bad" data-act="deljudge" data-v="${dj.id}">Delete</button></div></td></tr></tbody></table></div>`:''}</div>`}
 function scoresEntered(id){if(!S.cfg)return'';let f=0,t=0;CATS.forEach(([c])=>DANCES.forEach(([d])=>{if(!does(S.judges[id]||{},d))return;for(let g=1;g<=nG(c);g++)crit(d).forEach((_,ci)=>{t++;if(cell(id,c,d,g,ci)!==null)f++})}));return`${f} / ${t}`}
 
 function catAdmin(c){
-  const subs=[['street','Street Dance (40%)'],['pilgrims','Pilgrims Dance (60%)'],['overall','Overall'],['awards','Special Awards'],['deds','Deductions']];
+  const subs=[['street','Street Dance (40%)'],['pilgrims','Pilgrims Dance (60%)'],['overall','Overall'],['awards','Special Awards'],['deds','Deductions'],['jded','Judges Deduction']];
   subs[0][1]=`Street Dance (${S.cfg.weights.street}%)`;subs[1][1]=`Pilgrims Dance (${S.cfg.weights.pilgrims}%)`;
   const sub=S.asub;
   return`<div class="tabs sub" role="tablist">${subs.map(([k,n])=>`<button class="tab" role="tab" aria-selected="${sub===k}" data-act="asub" data-v="${k}">${n}</button>`).join('')}</div>
-  ${sub==='street'||sub==='pilgrims'?adminDance(c,sub):sub==='overall'?adminOverall(c):sub==='awards'?adminAwards(c):adminDeds(c)}`}
+  ${sub==='street'||sub==='pilgrims'?adminDance(c,sub):sub==='overall'?adminOverall(c):sub==='awards'?adminAwards(c):sub==='jded'?adminJDeds(c):adminDeds(c)}`}
 
 function adminDance(c,d){
   const cr=crit(d),rows=table(c,d),js=judgeList().filter(j=>does(j,d));
   return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Score sheet overall, ${DANCES.find(x=>x[0]===d)[1]}</h2><p class="no-print">Criterion scores are the average of all judges who scored them. Deductions come off the sum.</p></div><span class="pill">${S.cfg.weights[d]}% of total score</span></div>
   <div class="scroll"><table><thead><tr><th>Group</th>${cr.map(x=>`<th>${esc(x.n)} <span class="mono">(${x.max}%)</span></th>`).join('')}<th>Deductions</th><th>Final Score <span class="mono">(${S.cfg.weights[d]}%)</span></th><th>Rank</th>${js.map(j=>`<th>${esc(j.username)}</th>`).join('')}</tr></thead><tbody>
   ${rows.map(r=>`<tr class="${r.rank===1&&r.final>0?'r1':''}"><td>Group ${r.g}</td>${r.avgs.map(v=>`<td class="num">${v?fmt(v):''}</td>`).join('')}<td class="num">${r.ded?'−'+fmt(r.ded):''}</td><td class="tot num">${r.final?fmt(r.final):''}</td><td class="rank">${r.final?`<b>${r.rank}</b>`:''}</td>${js.map(j=>{const t=judgeTotal(j.id,c,d,r.g);return`<td class="num">${t===null?'':fmt(t)}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>
-  <div class="legend no-print"><span>Judge columns show each judge's own total out of ${maxTotal(d)}, before deductions.</span></div></div>`}
+  <div class="legend no-print"><span>Judge columns show each judge's own total out of ${maxTotal(d)}, before deductions. Deductions include any points from the deduction judge.</span></div></div>`}
 
 function adminOverall(c){
   const rows=overall(c);
@@ -711,6 +739,14 @@ function adminAwards(c){
   return`<div><h3 style="font-size:16px;margin-bottom:8px">${name}</h3><div class="scroll"><table><thead><tr><th>Group</th><th>Judges ranked</th><th>Rank total</th><th>Average rank</th><th>Result</th></tr></thead><tbody>
   ${rows.map(r=>`<tr class="${r.rank===1?'r1':''}"><td>Group ${r.g}</td><td class="num">${r.n}</td><td class="num">${r.n?r.sum:''}</td><td class="num">${r.avg===null?'':fmt(r.avg)}</td><td class="rank">${r.rank?`<b>${r.rank}</b>`:''}</td></tr>`).join('')}</tbody></table></div></div>`}).join('')}</div></div>`}
 
+function adminJDeds(c){
+  const dj=dedJudge();
+  return DANCES.map(([d,dn])=>{
+    const cr=jcrit(d);
+    if(!cr.length||!dj)return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Judges Deduction, ${dn}</h2></div></div><div class="empty">${!cr.length?'No judge deduction criteria yet. Add them in Tabulation Setup.':'No deduction judge yet. Create one in Judges Setup.'}</div></div>`;
+    return`<div class="panel"><div class="head"><div><h2>${catName(c)} · Judges Deduction, ${dn}</h2><p class="no-print">Points entered by the deduction judge${dj.fullName?' ('+esc(dj.fullName)+')':''}. The total comes off the ${dn} final score.</p></div></div>
+    <div class="scroll"><table><thead><tr><th>Group</th>${cr.map(x=>`<th>${esc(x.n)} <span class="mono">(max ${x.max})</span></th>`).join('')}<th>Total deducted</th></tr></thead><tbody>
+    ${Array.from({length:nG(c)},(_,k)=>k+1).map(g=>{const t=judgeTotal(dj.id,c,d,g);return`<tr><td>Group ${g}</td>${cr.map((x,ci)=>{const v=cell(dj.id,c,d,g,ci);return`<td class="num">${v===null?'':fmt(v)}</td>`}).join('')}<td class="num tot">${t?'−'+fmt(t):''}</td></tr>`}).join('')}</tbody></table></div></div>`}).join('')}
 function adminDeds(c){
   return DANCES.map(([d,dn])=>{
     const items=S.cfg.deductions[d]||[];
@@ -726,6 +762,22 @@ async function pdfLibs(){
   if(!(window.jspdf&&window.jspdf.jsPDF))await loadLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
   if(!(window.jspdf&&window.jspdf.jsPDF.API.autoTable))await loadLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js')}
 async function downloadPdf(){
+  const s0=S.session;
+  const all=(s0.role==='judge'&&S.cat!=='final'&&S.sub==='overall')||(s0.role==='admin'&&(S.atab==='elem'||S.atab==='hs')&&S.asub==='overall');
+  const cat=s0.role==='judge'?S.cat:S.atab;
+  const ttl=all?`${catName(cat)} Category · All`:viewTitle();
+  let host=null;
+  try{
+    if(all){
+      host=document.createElement('div');host.style.cssText='position:absolute;left:-99999px;top:0;width:1200px';
+      const jid=s0.id,jme=S.judges[jid]||{};
+      const parts=s0.role==='judge'?[...(does(jme,'street')?[judgeSheet(jid,cat,'street')]:[]),...(does(jme,'pilgrims')?[judgeSheet(jid,cat,'pilgrims')]:[]),judgeOverall(jid,cat),judgeAwards(jid,cat)]
+        :[adminDance(cat,'street'),adminDance(cat,'pilgrims'),adminOverall(cat),adminAwards(cat),adminDeds(cat),adminJDeds(cat)];
+      host.innerHTML=parts.join('');document.body.appendChild(host);
+      host.querySelectorAll('table[data-sheet]').forEach(t=>{const[c,d]=t.dataset.sheet.split('|');refreshSheet(c,d,host)})}
+    await downloadPdf2(ttl,host||$app)}
+  finally{if(host)host.remove()}}
+async function downloadPdf2(ttl,root){
   try{await pdfLibs()}catch(e){console.warn(e);toast('Could not load the PDF tool. Check your connection.');return}
   const {jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'landscape',unit:'pt',format:S.paper==='long'?[612,936]:'a4'});
   const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=32;
@@ -737,14 +789,14 @@ async function downloadPdf(){
     if(hi.length){const av=W-2*M,gp=8,sm=hi.reduce((a,i)=>a+i.w/i.h,0),hh=Math.min(113,(av-gp*(hi.length-1))/sm),tw=sm*hh+gp*(hi.length-1);let x=M+(av-tw)/2;
       hi.forEach(i=>{const w=i.w/i.h*hh;doc.addImage(i.d,i.d.startsWith('data:image/png')?'PNG':'JPEG',x,y,w,hh);x+=w+gp});y+=hh+22}
     doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text(clean(ev),M,y);y+=15;
-    doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text(clean(viewTitle()),M,y);y+=13;
+    doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text(clean(ttl),M,y);y+=13;
     if(me&&me.fullName){doc.text('Judge: '+clean(me.fullName),M,y);y+=13}
     doc.setFontSize(8);doc.text('Printed '+new Date().toLocaleString(),M,y);y+=6;
     doc.setLineWidth(1);doc.line(M,y,W-M,y);y+=14};
   const sign=names=>{if(y>H-70){doc.addPage();y=M}y+=30;const n=names.length,gap=18,w=(W-2*M-gap*(n-1))/n;
     doc.setFont('helvetica','normal');doc.setFontSize(9);names.forEach((nm,i)=>{const x=M+i*(w+gap);doc.line(x,y,x+w,y);doc.text(clean(nm[0]),x+w/2,y+11,{align:'center'});doc.text(nm[1],x+w/2,y+22,{align:'center'})});y+=34};
   head();
-  const panels=[...document.querySelectorAll('#app .panel')].filter(p=>p.querySelector('table')&&!p.classList.contains('no-print'));
+  const panels=[...root.querySelectorAll('.panel')].filter(p=>p.querySelector('table')&&!p.classList.contains('no-print'));
   panels.forEach((pan,pi)=>{
     if((pan.classList.contains('jsheet')||pan.classList.contains('gavg'))&&!first){doc.addPage();y=M;head()}
     const h2=pan.querySelector('.head h2'),sub=pan.querySelector('.head p:not(.no-print)');
@@ -764,8 +816,8 @@ async function downloadPdf(){
     first=false});
   if(S.session.role==='admin'&&(S.atab==='elem'||S.atab==='hs'))sign(judgeList().map(j=>[j.fullName||j.username,'Judge '+j.n]).concat([['','Tabulator']]));
   if(S.session.role==='judge')sign([[(me&&(me.fullName||me.username))||'','Judge signature']]);
-  const fn='Voyadores-Tally-'+clean(viewTitle()).replace(/[^A-Za-z0-9]+/g,'-').replace(/^-|-$/g,'')+'.pdf';
-  {const n=doc.getNumberOfPages(),yr=new Date().getFullYear();for(let i=1;i<=n;i++){doc.setPage(i);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(90);doc.text('\u00A9 '+yr+' Zara Tabulation Team',W/2,H-14,{align:'center'})}}
+  const fn='Voyadores-Tally-'+clean(ttl).replace(/[^A-Za-z0-9]+/g,'-').replace(/^-|-$/g,'')+'.pdf';
+  {const n=doc.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(90);doc.text(COPY,W/2,H-14,{align:'center'})}}
   doc.save(fn);toast('PDF downloaded')}
 
 /* ---------- events ---------- */
@@ -778,11 +830,11 @@ document.addEventListener('submit',async e=>{
   const enter=sess=>{S.session=sess;ls.set('tally.session',JSON.stringify(sess));S.cat='elem';S.sub='street';restart();render()};
   const hashOf=async(id)=>{try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(device+'|'+id+'|'+p));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')}catch(err){return null}};
   try{
-    if(u.toLowerCase()==='admin'){
+    if(u.toLowerCase()==='admin'||u.toLowerCase()===ADMIN_EMAIL){
       if(FB){if(off()){S.msg='You are offline. The tabulator must sign in with a connection.';render();return}await AUTH.adminIn(p);device=AUTH.uid();enter({role:'admin'});return}
       if(p===DEMO_PW){enter({role:'admin'});return}
       S.msg='Wrong username or password.';render();return}
-    const find=()=>judgeList().find(x=>x.username.toLowerCase()===u.toLowerCase());
+    const find=()=>allJudges().find(x=>x.username.toLowerCase()===u.toLowerCase());
     const bad=j=>!j||(!FB&&pwOf(j)!==p);
     const refresh=async()=>{const snap=await db.collection('judges').get();const m={};snap.docs.forEach(d=>m[d.id]={...d.data(),id:d.id});S.judges=m;
       if(!FB){const sn=await db.collection('secrets').get();const s2={};sn.docs.forEach(d=>s2[d.id]=d.data());S.secrets=s2}};
@@ -854,6 +906,9 @@ document.addEventListener('click',async e=>{
   else if(a==='print'){const old=document.title;document.title='Voyadores Festival Tabulation - '+viewTitle();const back=()=>{document.title=old;window.removeEventListener('afterprint',back)};window.addEventListener('afterprint',back);window.print()}
   else if(a==='logout'){const wasAdmin=S.session&&S.session.role==='admin';S.session=null;ls.del('tally.session');S.msg='';unsubAll();S.scores={};S.deds={};S.awards={};if(AUTH&&wasAdmin){S.secrets={};try{await AUTH.out();await AUTH.anon();device=AUTH.uid()}catch(err){console.warn(err)}}startCommon();render()}
   else if(a==='loaddefaults'){await db.doc('config/main').set(defaultCfg());toast('Festival defaults loaded')}
+  else if(a==='addjcrit'){(S.draft.jcrit[v]=S.draft.jcrit[v]||[]).push({n:'New criterion',max:5});render()}
+  else if(a==='deljcrit'){const[k,i]=v.split('|');S.draft.jcrit[k].splice(+i,1);render()}
+  else if(a==='makeded'){await db.collection('secrets').doc('jd').set({pw:newPw()});await db.collection('judges').doc('jd').set({n:0,ded:true,username:'Deduction',claimedBy:null,street:true,pilgrims:true});toast('Deduction judge created');render()}
   else if(a==='addcrit'){S.draft.criteria[v].push({n:'New criterion',max:5});render()}
   else if(a==='adddd'){S.draft.deductions[v].push({id:'n'+Date.now().toString(36),n:'New deduction',pts:1});render()}
   else if(a==='addaward'){S.draft.awards.push({id:'a'+Date.now().toString(36),n:'New award'});render()}
@@ -862,7 +917,7 @@ document.addEventListener('click',async e=>{
   else if(a==='delcrit'){const[k,i]=v.split('|');S.draft.criteria[k].splice(+i,1);render()}
   else if(a==='savecfg'){
     const d=S.draft;d.weights.street=+d.weights.street||0;d.weights.pilgrims=+d.weights.pilgrims||0;
-    ['street','pilgrims'].forEach(k=>{d.criteria[k].forEach(c=>c.max=+c.max||0);d.deductions[k].forEach(x=>x.pts=+x.pts||0)});
+    d.jcrit=d.jcrit||{street:[],pilgrims:[]};['street','pilgrims'].forEach(k=>{d.criteria[k].forEach(c=>c.max=+c.max||0);d.deductions[k].forEach(x=>x.pts=+x.pts||0);d.jcrit[k]=(d.jcrit[k]||[]).map(x=>({n:(x.n||'').trim()||'Deduction',max:+x.max||0}))});
     CATS.forEach(([k])=>d.contingents[k]=Math.max(0,Math.min(40,+d.contingents[k]||0)));
     d.awards=d.awards.map(a=>({id:a.id,n:(a.n||'').trim()||'Award'}));
     const keep=new Set(d.awards.map(a=>a.id));
@@ -934,6 +989,8 @@ document.addEventListener('input',e=>{
     else if(t.dataset.an){S.draft.awards[+t.dataset.an].n=t.value}
     else if(t.dataset.dn){const[k,i]=t.dataset.dn.split('|');S.draft.deductions[k][+i].n=t.value}
     else if(t.dataset.dp){const[k,i]=t.dataset.dp.split('|');S.draft.deductions[k][+i].pts=t.value}
+    else if(t.dataset.jn){const[k,i]=t.dataset.jn.split('|');S.draft.jcrit[k][+i].n=t.value}
+    else if(t.dataset.jm){const[k,i]=t.dataset.jm.split('|');S.draft.jcrit[k][+i].max=t.value}
     else if(t.dataset.cm){const[k,i]=t.dataset.cm.split('|');S.draft.criteria[k][+i].max=t.value;updateSums()}
   }
 });
@@ -967,7 +1024,7 @@ document.addEventListener('change',async e=>{
   else if(t.dataset.ju||t.dataset.jp){
     const id=t.dataset.ju||t.dataset.jp,f=t.dataset.ju?'username':'password',val=t.value.trim();
     if(!val){toast('This field cannot be empty');render();return}
-    if(f==='username'&&judgeList().some(j=>j.id!==id&&j.username.toLowerCase()===val.toLowerCase())){toast('Another judge already has that username');render();return}
+    if(f==='username'&&allJudges().some(j=>j.id!==id&&j.username.toLowerCase()===val.toLowerCase())){toast('Another judge already has that username');render();return}
     if(f==='password')await db.collection('secrets').doc(id).set({pw:val});else await db.collection('judges').doc(id).update({[f]:val});toast('Saved')}
 });
 
