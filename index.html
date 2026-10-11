@@ -381,17 +381,17 @@ function render(){
 function fitPins(){const r=document.documentElement.style;const go=()=>{const b=$app.querySelector('.bar'),t=$app.querySelector('.tabs:not(.sub)');r.setProperty('--barh',b?b.offsetHeight+'px':'0px');r.setProperty('--tabh',t?t.offsetHeight+'px':'0px')};go();setTimeout(go,60)}
 window.addEventListener('resize',()=>{if(S.session)fitPins()});
 function dlLabel(s){
-  if(s.role==='judge'){if(S.cat==='final')return'Download Overall Final Score';return`Download ${catName(S.cat)} ${SUBN[S.sub]}`}
-  if(S.atab==='elem'||S.atab==='hs')return`Download ${catName(S.atab)} ${SUBN[S.asub]}`;
+  if(s.role==='judge'){if(S.cat==='final')return'Download Overall Final Score';return S.sub==='overall'?`Download ${catName(S.cat)} Category Scoresheets`:`Download ${catName(S.cat)} ${SUBN[S.sub]}`}
+  if(S.atab==='elem'||S.atab==='hs')return S.asub==='overall'?`Download ${catName(S.atab)} Category Scoresheets`:`Download ${catName(S.atab)} ${SUBN[S.asub]}`;
   if(S.atab==='jsheet')return`Download ${catName(S.jsc)} ${SUBN[S.jsd]} Judges Score Sheets`;
   if(S.atab==='summary')return'Download Summary';
   return'Download'}
 function exportBtns(s){
   if(S.mode==='claude')return'';
-  const one=`<button class="btn" data-act="download" data-v="one">${esc(dlLabel(s))}</button>`,all=()=>`<button class="btn" data-act="download" data-v="all">Download ${esc(catName(s.role==='judge'?S.cat:S.atab))} Category Scoresheets</button>`;
-  if(s.role==='judge'){if(S.cat==='final')return one;return S.sub==='overall'?all():all()+one}
-  if((S.atab==='elem'||S.atab==='hs')&&S.cfg)return S.asub==='overall'?all():all()+one;
-  if((['jsheet'].includes(S.atab)&&S.cfg)||(S.atab==='summary'&&S.sumYear&&S.archive[S.sumYear]))return one;
+  const all=(s.role==='judge'&&S.cat!=='final'&&S.sub==='overall')||((S.atab==='elem'||S.atab==='hs')&&S.asub==='overall');
+  const one=`<button class="btn" data-act="download" data-v="${all?'all':'one'}">${esc(dlLabel(s))}</button>`;
+  if(s.role==='judge')return one;
+  if((['elem','hs','jsheet'].includes(S.atab)&&S.cfg)||(S.atab==='summary'&&S.sumYear&&S.archive[S.sumYear]))return one;
   return''}
 const TABN={summary:'Summary',setup:'Tabulation Setup',printing:'Printing Setup',judges:'Judges Setup',elem:'Elementary Category',hs:'Highschool Category',jsheet:'Judges Score Sheet'};
 const SUBN={street:'Street Dance',pilgrims:'Pilgrims Dance',overall:'Overall Scores',awards:'Special Awards',deds:'Deductions',jded:'Judges Deduction'};
@@ -883,8 +883,8 @@ document.addEventListener('click',async e=>{
   else if(a==='sub'){S.sub=v;render()}
   else if(a==='fcat'){S.fcat=v;render()}
   else if(a==='fsub'){S.fsub=v;render()}
-  else if(a==='sect'){S.last=S.last||{};S.last[sectOf(S.atab)]=S.atab;S.atab=(S.last[v])||(v==='setup'?'setup':v==='summary'?'summary':'elem');S.msg='';S.confirm=null;render()}
-  else if(a==='atab'){S.atab=v;S.msg='';S.confirm=null;render()}
+  else if(a==='sect'){S.last=S.last||{};S.last[sectOf(S.atab)]=S.atab;S.atab=(S.last[v])||(v==='setup'?'setup':v==='summary'?'summary':'elem');if(v==='scores'&&(S.atab==='elem'||S.atab==='hs'))S.asub='overall';S.msg='';S.confirm=null;render()}
+  else if(a==='atab'){if((v==='elem'||v==='hs')&&S.atab!==v)S.asub='overall';S.atab=v;S.msg='';S.confirm=null;render()}
   else if(a==='asub'){S.asub=v;render()}
   else if(a==='jsc'){S.jsc=v;render()}
   else if(a==='jsd'){S.jsd=v;render()}
