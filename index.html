@@ -381,14 +381,14 @@ function render(){
 function fitPins(){const r=document.documentElement.style;const go=()=>{const b=$app.querySelector('.bar'),t=$app.querySelector('.tabs:not(.sub)');r.setProperty('--barh',b?b.offsetHeight+'px':'0px');r.setProperty('--tabh',t?t.offsetHeight+'px':'0px')};go();setTimeout(go,60)}
 window.addEventListener('resize',()=>{if(S.session)fitPins()});
 function dlLabel(s){
-  if(s.role==='judge'){if(S.cat==='final'){const fc=S.fcat||'elem',fs=S.fsub||'street';return S.fall?'Download all Overall Final Scoresheets':fs==='overall'?`Download ${catName(fc)} Category Scoresheets`:`Download ${catName(fc)} ${SUBN[fs]} (Final)`}return S.sub==='overall'?`Download ${catName(S.cat)} Category Scoresheets`:`Download ${catName(S.cat)} ${SUBN[S.sub]}`}
-  if(S.atab==='elem'||S.atab==='hs')return S.asub==='overall'?`Download ${catName(S.atab)} Category Scoresheets`:`Download ${catName(S.atab)} ${SUBN[S.asub]}`;
+  if(s.role==='judge'){if(S.cat==='final'){const fc=S.fcat||'elem',fs=S.fsub||'street';return S.fall?'Download all Overall Final Scoresheets':S.fcall?`Download ${catName(fc)} Category Scoresheets`:`Download ${catName(fc)} ${SUBN[fs]} (Final)`}return S.call?`Download ${catName(S.cat)} Category Scoresheets`:`Download ${catName(S.cat)} ${SUBN[S.sub]}`}
+  if(S.atab==='elem'||S.atab==='hs')return S.aall?`Download ${catName(S.atab)} Category Scoresheets`:`Download ${catName(S.atab)} ${SUBN[S.asub]}`;
   if(S.atab==='jsheet')return S.jall?`Download ${catName(S.jsc)} Category Judges Score Sheets`:`Download ${catName(S.jsc)} ${SUBN[S.jsd]} Judges Score Sheets`;
   if(S.atab==='summary')return'Download Summary';
   return'Download'}
 function exportBtns(s){
   if(S.mode==='claude')return'';
-  const all=(s.role==='judge'&&(S.cat==='final'?(!!S.fall||(S.fsub||'street')==='overall'):S.sub==='overall'))||((S.atab==='elem'||S.atab==='hs')&&S.asub==='overall')||(S.atab==='jsheet'&&!!S.jall);
+  const all=(s.role==='judge'&&(S.cat==='final'?(!!S.fall||!!S.fcall):!!S.call))||((S.atab==='elem'||S.atab==='hs')&&!!S.aall)||(S.atab==='jsheet'&&!!S.jall);
   const one=`<button class="btn" data-act="download" data-v="${all?'all':'one'}">${esc(dlLabel(s))}</button>`;
   if(s.role==='judge')return one;
   if((['elem','hs','jsheet'].includes(S.atab)&&S.cfg)||(S.atab==='summary'&&S.sumYear&&S.archive[S.sumYear]))return one;
@@ -882,13 +882,13 @@ window.addEventListener('dberr',()=>{if(S.session)return;const u=document.getEle
 document.addEventListener('click',async e=>{
   const t=e.target.closest('[data-act]');if(!t)return;
   const a=t.dataset.act,v=t.dataset.v;
-  if(a==='cat'){S.cat=v;if(v!=='final')S.sub='overall';else S.fall=true;render()}
-  else if(a==='sub'){S.sub=v;render()}
-  else if(a==='fcat'){S.fcat=v;S.fsub='overall';S.fall=false;render()}
-  else if(a==='fsub'){S.fsub=v;S.fall=false;render()}
-  else if(a==='sect'){S.last=S.last||{};S.last[sectOf(S.atab)]=S.atab;S.atab=(S.last[v])||(v==='setup'?'setup':v==='summary'?'summary':'elem');if(v==='scores'&&(S.atab==='elem'||S.atab==='hs'))S.asub='overall';if(S.atab==='jsheet')S.jall=true;S.msg='';S.confirm=null;render()}
-  else if(a==='atab'){if(v==='jsheet')S.jall=true;if(v==='elem'||v==='hs')S.asub='overall';S.atab=v;S.msg='';S.confirm=null;render()}
-  else if(a==='asub'){S.asub=v;render()}
+  if(a==='cat'){S.cat=v;if(v!=='final'){S.sub='street';S.call=true}else S.fall=true;render()}
+  else if(a==='sub'){S.sub=v;S.call=false;render()}
+  else if(a==='fcat'){S.fcat=v;S.fsub='street';S.fall=false;S.fcall=true;render()}
+  else if(a==='fsub'){S.fsub=v;S.fall=false;S.fcall=false;render()}
+  else if(a==='sect'){S.last=S.last||{};S.last[sectOf(S.atab)]=S.atab;S.atab=(S.last[v])||(v==='setup'?'setup':v==='summary'?'summary':'elem');if(v==='scores'&&(S.atab==='elem'||S.atab==='hs')){S.asub='street';S.aall=true}if(S.atab==='jsheet')S.jall=true;S.msg='';S.confirm=null;render()}
+  else if(a==='atab'){if(v==='jsheet')S.jall=true;if(v==='elem'||v==='hs'){S.asub='street';S.aall=true}S.atab=v;S.msg='';S.confirm=null;render()}
+  else if(a==='asub'){S.aall=false;S.asub=v;render()}
   else if(a==='jsc'){S.jsc=v;S.jall=true;render()}
   else if(a==='jsd'){S.jsd=v;S.jall=false;render()}
   else if(a==='paper'){S.paper=v;render();try{await db.doc('config/paper').set({size:v})}catch(err){console.warn(err)}}
