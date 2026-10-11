@@ -35,6 +35,7 @@ button,input,select{font:inherit;color:inherit}
 .bar{position:sticky;top:calc(var(--nb,0px) + env(safe-area-inset-top,0px));z-index:5;background:var(--bar);color:#fff;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px 11px;margin:0 -16px 18px;border-bottom:5px solid;border-image:linear-gradient(90deg,#5ac8c8 0 25%,#ffc90e 25% 50%,#f04125 50% 75%,#a98bf0 75%) 1}
 .bar .hint{color:#d9ccf5}
 .bar .chip,.bar .btn{color:var(--ink)}
+.bar .btn{font-size:13px;padding:7px 10px}.bar .brand{flex:1 1 180px;min-width:0}.bar .brand span{display:block}
 body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(circle at 100% 0,rgba(90,200,200,.22) 0 15vmax,transparent calc(15vmax + 1px)),radial-gradient(circle at 0 100%,rgba(240,65,37,.12) 0 13vmax,transparent calc(13vmax + 1px)),radial-gradient(circle at 100% 100%,rgba(255,201,14,.2) 0 10vmax,transparent calc(10vmax + 1px))}
 .head h2{color:var(--navy)}
 .brand{display:flex;flex-direction:column;min-width:0;flex:1 1 220px}
@@ -387,9 +388,9 @@ function dlLabel(s){
   return'Download'}
 function exportBtns(s){
   if(S.mode==='claude')return'';
-  const one=`<button class="btn" data-act="download" data-v="one">${esc(dlLabel(s))}</button>`,all=`<button class="btn" data-act="download" data-v="all">Download ${esc(catName(s.role==='judge'?S.cat:S.atab))} Category Scoresheets</button>`;
-  if(s.role==='judge'){if(S.cat==='final')return one;return S.sub==='overall'?all:all+one}
-  if((S.atab==='elem'||S.atab==='hs')&&S.cfg)return S.asub==='overall'?all:all+one;
+  const one=`<button class="btn" data-act="download" data-v="one">${esc(dlLabel(s))}</button>`,all=()=>`<button class="btn" data-act="download" data-v="all">Download ${esc(catName(s.role==='judge'?S.cat:S.atab))} Category Scoresheets</button>`;
+  if(s.role==='judge'){if(S.cat==='final')return one;return S.sub==='overall'?all():all()+one}
+  if((S.atab==='elem'||S.atab==='hs')&&S.cfg)return S.asub==='overall'?all():all()+one;
   if((['jsheet'].includes(S.atab)&&S.cfg)||(S.atab==='summary'&&S.sumYear&&S.archive[S.sumYear]))return one;
   return''}
 const TABN={summary:'Summary',setup:'Tabulation Setup',printing:'Printing Setup',judges:'Judges Setup',elem:'Elementary Category',hs:'Highschool Category',jsheet:'Judges Score Sheet'};
