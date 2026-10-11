@@ -879,12 +879,12 @@ window.addEventListener('dberr',()=>{if(S.session)return;const u=document.getEle
 document.addEventListener('click',async e=>{
   const t=e.target.closest('[data-act]');if(!t)return;
   const a=t.dataset.act,v=t.dataset.v;
-  if(a==='cat'){S.cat=v;render()}
+  if(a==='cat'){S.cat=v;if(v!=='final')S.sub='overall';render()}
   else if(a==='sub'){S.sub=v;render()}
   else if(a==='fcat'){S.fcat=v;render()}
   else if(a==='fsub'){S.fsub=v;render()}
   else if(a==='sect'){S.last=S.last||{};S.last[sectOf(S.atab)]=S.atab;S.atab=(S.last[v])||(v==='setup'?'setup':v==='summary'?'summary':'elem');if(v==='scores'&&(S.atab==='elem'||S.atab==='hs'))S.asub='overall';S.msg='';S.confirm=null;render()}
-  else if(a==='atab'){if((v==='elem'||v==='hs')&&S.atab!==v)S.asub='overall';S.atab=v;S.msg='';S.confirm=null;render()}
+  else if(a==='atab'){if(v==='elem'||v==='hs')S.asub='overall';S.atab=v;S.msg='';S.confirm=null;render()}
   else if(a==='asub'){S.asub=v;render()}
   else if(a==='jsc'){S.jsc=v;render()}
   else if(a==='jsd'){S.jsd=v;render()}
