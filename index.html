@@ -131,6 +131,7 @@ td input.bad{border-color:var(--bad);background:var(--bad-soft)}
 .print-only{display:none}
 .sig{gap:24px;margin-top:26px}
 .sig div{border-top:1px solid #000;padding-top:4px;text-align:center;font-size:12px}
+.sig b{font-size:15px;font-weight:700}.sig i{font-style:italic}
 .hdrimgs{align-items:center;gap:var(--gap,6px);width:min(100%,calc(var(--sum)*var(--mh) + (var(--n) - 1)*var(--gap,6px)));margin:0 auto 8px}
 .hdrimgs img{min-width:0;height:auto;display:block}
 .hslots{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px}
@@ -421,8 +422,8 @@ function render(){
     <div class="print-only print-head"><b>${esc(ev)}</b><div>${esc(viewTitle())}</div>${me&&me.fullName?`<div>Judge: ${esc(me.fullName)}</div>`:''}<div>Printed ${esc(new Date().toLocaleString())}</div></div>
     ${S.mode==='local'?'<div class="msg warn" style="margin:0 0 14px">Demo mode: scores stay in this browser only. Connect Firebase to share scores between judges.</div>':''}
     ${s.role==='admin'?adminView():judgeView()}
-    ${s.role==='admin'&&(S.atab==='elem'||S.atab==='hs')?`<div class="print-only sig">${judgeList().map(j=>`<div>${esc(j.fullName||j.username)}<br>Judge ${j.n}</div>`).join('')}<div>Tabulator</div></div>`:''}
-    ${s.role==='judge'?`<div class="print-only sig"><div>${esc(me.fullName||me.username||'')}<br>Judge signature</div></div>`:''}
+    ${s.role==='admin'&&(S.atab==='elem'||S.atab==='hs')?`<div class="print-only sig">${judgeList().map(j=>`<div><b>${esc(j.fullName||j.username)}</b><br><i>Judge ${j.n}</i></div>`).join('')}<div><i>Tabulator</i></div></div>`:''}
+    ${s.role==='judge'?`<div class="print-only sig"><div><b>${esc(me.fullName||me.username||'')}</b><br><i>Judge signature</i></div></div>`:''}
     <footer class="appfoot">${COPY}</footer>`;
   fitPins();
 }
@@ -655,13 +656,13 @@ function jsSheet(j,c,d){
   return`<div class="panel jsheet"><div class="head"><div><h2>${esc(jlabel(j))}</h2><p>Judge ${j.n} (${esc(j.username)}) · ${catName(c)} Category · ${SUBN[d]}</p></div><span class="pill">${S.cfg.weights[d]}% of total</span></div>
   <div class="scroll"><table class="bordered"><thead><tr><th>Group</th>${cr.map(x=>`<th>${esc(x.n)} <span class="mono">(${x.max}%)</span></th>`).join('')}<th>Final Score <span class="mono">/ ${maxTotal(d)}</span></th><th>Rank</th></tr></thead><tbody>
   ${tots.map((t,i)=>`<tr><td>Group ${i+1}</td>${cr.map((_,ci)=>{const v=cell(j.id,c,d,i+1,ci);return`<td class="num">${v===null?'':v}</td>`}).join('')}<td class="tot num">${t===null?'':fmt(t)}</td><td class="rank">${t===null?'':`<b>${rankIn(filled,t)}</b>`}</td></tr>`).join('')}</tbody></table></div>
-  <div class="print-only sig"><div>${esc(jlabel(j))}<br>Judge signature</div></div></div>`}
+  <div class="print-only sig"><div><b>${esc(jlabel(j))}</b><br><i>Judge signature</i></div></div></div>`}
 function jsAwards(j,c){
   const n=nG(c);const rows=[];for(let g=1;g<=n;g++)rows.push(g);
   return`<div class="panel jsheet"><div class="head"><div><h2>${esc(jlabel(j))}</h2><p>Judge ${j.n} (${esc(j.username)}) · ${catName(c)} Category · Special Awards</p></div></div>
   <div class="scroll"><table class="bordered"><thead><tr><th>Group</th>${AWARDS.map(([a,nm])=>`<th>${nm} (rank)</th>`).join('')}</tr></thead><tbody>
   ${rows.map(g=>`<tr><td>Group ${g}</td>${AWARDS.map(([a])=>{const r=awardRank(j.id,c,a,g);return`<td class="num">${r||''}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>
-  <div class="print-only sig"><div>${esc(jlabel(j))}<br>Judge signature</div></div></div>`}
+  <div class="print-only sig"><div><b>${esc(jlabel(j))}</b><br><i>Judge signature</i></div></div></div>`}
 
 function jcritPanel(d){
   const J=d.jcrit||(d.jcrit={street:[],pilgrims:[]});
@@ -849,7 +850,7 @@ async function downloadPdf2(ttl,root){
     doc.setFontSize(8);doc.text('Printed '+new Date().toLocaleString(),M,y);y+=6;
     doc.setLineWidth(1);doc.line(M,y,W-M,y);y+=14};
   const sign=names=>{if(y>H-70){doc.addPage();y=M}y+=30;const n=names.length,gap=18,w=(W-2*M-gap*(n-1))/n;
-    doc.setFont('helvetica','normal');doc.setFontSize(9);names.forEach((nm,i)=>{const x=M+i*(w+gap);doc.line(x,y,x+w,y);doc.text(clean(nm[0]),x+w/2,y+11,{align:'center'});doc.text(nm[1],x+w/2,y+22,{align:'center'})});y+=34};
+    names.forEach((nm,i)=>{const x=M+i*(w+gap);doc.line(x,y,x+w,y);doc.setFont('helvetica','bold');doc.setFontSize(11);doc.text(clean(nm[0]),x+w/2,y+12,{align:'center'});doc.setFont('helvetica','italic');doc.setFontSize(9);doc.text(nm[1],x+w/2,y+24,{align:'center'})});doc.setFont('helvetica','normal');y+=36};
   head();
   const panels=[...root.querySelectorAll('.panel')].filter(p=>p.querySelector('table')&&!p.classList.contains('no-print'));
   panels.forEach((pan,pi)=>{
