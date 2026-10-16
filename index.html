@@ -300,15 +300,17 @@ async function installApp(){
   m.innerHTML=`<div class="panel"><h2 style="font-size:20px;color:#432a7a">Download App</h2><p class="hint">Install this tabulator on your device. It opens like a normal app, works offline, and updates itself.</p><ol>${steps.map(x=>`<li>${x}</li>`).join('')}</ol>${APK_URL?`<p><a class="btn pri" style="display:inline-block;text-decoration:none" href="${esc(APK_URL)}">Download Android APK</a></p>`:''}<div class="row" style="justify-content:flex-end"><button class="btn" data-close>Close</button></div></div>`;
   m.addEventListener('click',e=>{if(e.target===m||e.target.hasAttribute('data-close'))m.remove()});
   document.body.appendChild(m);m.querySelector('[data-close]').focus()}
-let updShown=false,updLater=0;
+let updShown=false;
 function showUpdate(v){
-  if(updShown||Date.now()<updLater)return;updShown=true;
-  const b=document.createElement('div');b.className='updbar';b.id='updbar';b.setAttribute('role','alert');
-  b.innerHTML=`<span>A new version of the tabulator is available (${esc(v)}).</span><button class="btn gold" data-upd="go">Update App and Install</button><button class="btn" data-upd="later">Later</button>`;
-  b.addEventListener('click',async e=>{const k=e.target.getAttribute&&e.target.getAttribute('data-upd');
-    if(k==='later'){b.remove();updShown=false;updLater=Date.now()+30*60*1000}
-    else if(k==='go'){e.target.disabled=true;e.target.textContent='Updating…';await applyUpdate()}});
-  document.body.appendChild(b)}
+  if(updShown||ls.get('tally.deferred')===v)return;updShown=true;
+  const m=document.createElement('div');m.className='modal';m.id='updbar';m.setAttribute('role','alertdialog');m.setAttribute('aria-modal','true');
+  m.innerHTML=`<div class="panel"><h2 style="font-size:20px;color:#432a7a">Update available</h2><p class="hint">A new version of the tabulator (${esc(v)}) is ready.</p><div style="display:grid;gap:8px"><button class="btn pri" data-upd="go">Install</button><button class="btn" data-upd="later">Download and install later</button></div></div>`;
+  m.addEventListener('click',async e=>{const k=e.target.getAttribute&&e.target.getAttribute('data-upd');
+    if(k==='go'){e.target.disabled=true;e.target.textContent='Installing…';await applyUpdate()}
+    else if(k==='later'){e.target.disabled=true;e.target.textContent='Downloading…';
+      try{await fetch(location.pathname+'?vcheck='+Date.now(),{cache:'reload'});await fetch(location.pathname,{cache:'reload'})}catch(x){}
+      ls.set('tally.deferred',v);m.remove();toast('Update downloaded. It installs the next time you open the app.')}});
+  document.body.appendChild(m)}
 async function applyUpdate(){
   const wait=Object.keys(S.pending||{}).length;if(wait)await new Promise(r=>setTimeout(r,1200));
   try{const rg=await navigator.serviceWorker.getRegistration();if(rg)await rg.update()}catch(e){}
@@ -413,7 +415,7 @@ function render(){
   const ev=S.cfg?S.cfg.event:'Street and Pilgrims Dance Competition';
   $app.innerHTML=`<div class="bar"><div class="brand"><b>Voyadores Festival Tabulation</b><span>${esc(ev)}</span></div>
     <span class="chip"><i></i>${esc(who)}</span><span class="hint" id="savedAt"></span>
-    ${instBtn()}${exportBtns(s)}
+    ${exportBtns(s)}
     <button class="btn" data-act="logout">Sign out</button></div>
     ${hdrHtml('print-only hdrimgs')}
     <div class="print-only print-head"><b>${esc(ev)}</b><div>${esc(viewTitle())}</div>${me&&me.fullName?`<div>Judge: ${esc(me.fullName)}</div>`:''}<div>Printed ${esc(new Date().toLocaleString())}</div></div>
