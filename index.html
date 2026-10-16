@@ -1,8 +1,10 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<style>html{color-scheme:light dark}body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>Voyadores Festival Tabulation</title>
-<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#2c1b5a"><link rel="icon" href="favicon.ico" sizes="any"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="apple-touch-icon" href="apple-touch-icon.png"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Voyadores">
+<meta name="theme-color" content="#2c1b5a"><link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="favicon.ico" sizes="any"><link rel="icon" type="image/png" href="icon-192.png"><link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Voyadores">
+<style>html{box-sizing:border-box}body{margin:0}[hidden]{display:none!important}</style></head><body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Lilita+One&display=swap">
@@ -148,6 +150,12 @@ td input.bad{border-color:var(--bad);background:var(--bad-soft)}
 .pv-row{display:grid;grid-template-columns:2fr repeat(5,1fr) 1fr;border:1px solid #888;border-top:0;height:2.2cqw}
 .pv-row:first-child{border-top:1px solid #888;background:#ddd}
 .pv-row i{border-left:1px solid #888}.pv-row i:first-child{border-left:0}
+.updbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:40;width:min(94vw,520px);background:var(--navy);color:var(--navy-ink);border-radius:14px;padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,.4);display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:2px solid var(--gold)}
+.updbar span{flex:1 1 200px;font-weight:600;font-size:14px}
+.updbar .btn{color:var(--ink)}
+.modal{position:fixed;inset:0;z-index:50;background:rgba(10,4,30,.6);display:flex;align-items:center;justify-content:center;padding:16px}
+.modal .panel{max-width:440px;width:100%;--surface:#fff;--ink:#1c1233;--muted:#5d5575;--line:#d4cde6;--navy:#432a7a;--navy-ink:#fff;background:#fff;color:var(--ink)}
+.modal ol{padding-left:20px;margin:8px 0 14px}.modal li{margin:6px 0}
 .appfoot{text-align:center;font-size:12px;color:var(--muted);margin:32px 0 0;padding:10px 0}
 .appfoot.loginfoot{position:relative;z-index:1;margin:14px 0 0;color:#d9ccf5;padding:10px}
 .netbar{position:sticky;top:0;z-index:30;margin:0 -16px;padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top,0px));font-size:14px;font-weight:600;text-align:center}
@@ -167,6 +175,7 @@ td input.bad{border-color:var(--bad);background:var(--bad-soft)}
 @media (max-width:560px){.panel{padding:12px}th,td{padding:6px}}
 @media (prefers-reduced-motion:no-preference){.tab,.btn{transition:background .12s,border-color .12s}}
 @media print{
+  .updbar,.modal{display:none!important}
   :root,:root:not([data-theme="light"]),:root[data-theme="dark"]{--bg:#fff;--surface:#fff;--surface2:#eee;--line:#888;--ink:#000;--muted:#333;--navy:#000;--navy-ink:#fff;--gold:#ddd;--gold-soft:#eee;--gold-ink:#000;--ok:#000;--ok-soft:#eee;--warn:#000;--warn-soft:#eee;--bad:#000;--bad-soft:#eee;color-scheme:light}
   @page{size:landscape;margin:10mm}
   body{padding:0;font-size:11px;background:#fff;color:#000}
@@ -199,16 +208,11 @@ td input.bad{border-color:var(--bad);background:var(--bad-soft)}
 }
 </style>
 
-</head>
-<body>
 <div class="wrap" id="app"><div class="empty">Loading tabulator…</div></div>
 <div class="toast" id="toast" hidden></div>
 
 <script>
-/* If the main script fails to start, say so instead of staying on "Loading". */
-setTimeout(function(){var a=document.getElementById('app');if(a&&/^Loading/.test(a.textContent)){a.innerHTML='<div style="max-width:460px;margin:10vh auto;padding:20px;border:1px solid #b3261e;border-radius:10px;font-family:system-ui,sans-serif;color:#b3261e;background:#fff5f4"><b>The tabulator could not start.</b><br>Open the browser console (F12) to see the error. The most common cause is a typo in the FIREBASE_CONFIG block near the end of the file: every value must be inside quotation marks.</div>'}},6000);
-</script>
-<script>
+if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(e=>console.warn('sw',e))});
 (function(){
 'use strict';
 const CATS=[['elem','Elementary'],['hs','Highschool']];
@@ -216,6 +220,8 @@ const DANCES=[['street','Street Dance'],['pilgrims','Pilgrims Dance']];
 const DEF_AWARDS=()=>[{id:'music',n:'Best in Music'},{id:'costume',n:'Best in Costume'}];
 let AWARDS=DEF_AWARDS().map(a=>[a.id,a.n]);
 const ADMIN_EMAIL='admin@voyadores.local';   // must match the email in firestore.rules
+const APP_VERSION='v38';   // change this on every release so installed apps show the Update prompt
+const APK_URL='';          // optional: link to an .apk you host (e.g. a GitHub release). Leave empty to hide.
 const COPY='\u00A9 2014 Zara Tabulation Team. All rights reserved.';
 const DEMO_PW='0000';   // only used in demo mode (no Firebase). Never used with Firebase.
 
@@ -275,6 +281,45 @@ const fmt=n=>(Math.round(n*100)/100).toFixed(2);
   window.addEventListener('netchange',upd);
   window.addEventListener('synced',()=>{upd();toast('Back online. Tally updated.')});
 })();
+/* ---------- install app + update prompt ---------- */
+const IS_WEB=/^https?:$/.test(location.protocol);
+const isStandalone=()=>{try{return matchMedia('(display-mode: standalone)').matches||matchMedia('(display-mode: window-controls-overlay)').matches||navigator.standalone===true}catch(e){return false}};
+let installed=isStandalone();
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();window.__ip=e;if(S.ready!==undefined)softRender()});
+window.addEventListener('appinstalled',()=>{installed=true;window.__ip=null;toast('App installed.');softRender()});
+const canInstall=()=>IS_WEB&&!installed&&S.mode!=='claude';
+const instBtn=cls=>canInstall()?`<button class="btn ${cls||''}" data-act="install">${S.mode==='claude'?'':'Download App'}</button>`:'';
+async function installApp(){
+  if(window.__ip){const p=window.__ip;window.__ip=null;try{await p.prompt();const r=await p.userChoice;if(r&&r.outcome==='accepted')toast('Installing…')}catch(e){}softRender();return}
+  const ua=navigator.userAgent||'';const ios=/iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1);
+  const and=/Android/.test(ua);
+  const steps=ios?['Open this page in <b>Safari</b>.','Tap the <b>Share</b> button.','Choose <b>Add to Home Screen</b>, then <b>Add</b>.']
+   :and?['Tap the <b>⋮</b> menu in Chrome.','Choose <b>Install app</b> (or <b>Add to Home screen</b>).','Tap <b>Install</b>.']
+   :['In Chrome or Edge, click the <b>install icon</b> at the right end of the address bar,','or open the browser menu and choose <b>Install Voyadores Festival Tabulation</b>.'];
+  const m=document.createElement('div');m.className='modal';m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');
+  m.innerHTML=`<div class="panel"><h2 style="font-size:20px;color:#432a7a">Download App</h2><p class="hint">Install this tabulator on your device. It opens like a normal app, works offline, and updates itself.</p><ol>${steps.map(x=>`<li>${x}</li>`).join('')}</ol>${APK_URL?`<p><a class="btn pri" style="display:inline-block;text-decoration:none" href="${esc(APK_URL)}">Download Android APK</a></p>`:''}<div class="row" style="justify-content:flex-end"><button class="btn" data-close>Close</button></div></div>`;
+  m.addEventListener('click',e=>{if(e.target===m||e.target.hasAttribute('data-close'))m.remove()});
+  document.body.appendChild(m);m.querySelector('[data-close]').focus()}
+let updShown=false,updLater=0;
+function showUpdate(v){
+  if(updShown||Date.now()<updLater)return;updShown=true;
+  const b=document.createElement('div');b.className='updbar';b.id='updbar';b.setAttribute('role','alert');
+  b.innerHTML=`<span>A new version of the tabulator is available (${esc(v)}).</span><button class="btn gold" data-upd="go">Update App and Install</button><button class="btn" data-upd="later">Later</button>`;
+  b.addEventListener('click',async e=>{const k=e.target.getAttribute&&e.target.getAttribute('data-upd');
+    if(k==='later'){b.remove();updShown=false;updLater=Date.now()+30*60*1000}
+    else if(k==='go'){e.target.disabled=true;e.target.textContent='Updating…';await applyUpdate()}});
+  document.body.appendChild(b)}
+async function applyUpdate(){
+  const wait=Object.keys(S.pending||{}).length;if(wait)await new Promise(r=>setTimeout(r,1200));
+  try{const rg=await navigator.serviceWorker.getRegistration();if(rg)await rg.update()}catch(e){}
+  try{if(window.caches){const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)))}}catch(e){}
+  location.reload()}
+async function checkUpdate(){
+  if(!IS_WEB||S.mode==='claude'||(window.__net&&window.__net.offline))return;
+  try{const r=await fetch(location.pathname+'?vcheck='+Date.now(),{cache:'no-store'});if(!r.ok)return;
+    const t=await r.text();const m=t.match(/const APP_VERSION='([^']+)'/);
+    if(m&&m[1]!==APP_VERSION)showUpdate(m[1])}catch(e){}}
+if(IS_WEB){setTimeout(checkUpdate,3000);setInterval(checkUpdate,20*60*1000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkUpdate()})}
 function toast(t){const e=document.getElementById('toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,2200)}
 const catName=c=>CATS.find(x=>x[0]===c)[1];
 const nG=c=>Math.max(0,+(S.cfg&&S.cfg.contingents[c])||0);
@@ -368,7 +413,7 @@ function render(){
   const ev=S.cfg?S.cfg.event:'Street and Pilgrims Dance Competition';
   $app.innerHTML=`<div class="bar"><div class="brand"><b>Voyadores Festival Tabulation</b><span>${esc(ev)}</span></div>
     <span class="chip"><i></i>${esc(who)}</span><span class="hint" id="savedAt"></span>
-    ${exportBtns(s)}
+    ${instBtn()}${exportBtns(s)}
     <button class="btn" data-act="logout">Sign out</button></div>
     ${hdrHtml('print-only hdrimgs')}
     <div class="print-only print-head"><b>${esc(ev)}</b><div>${esc(viewTitle())}</div>${me&&me.fullName?`<div>Judge: ${esc(me.fullName)}</div>`:''}<div>Printed ${esc(new Date().toLocaleString())}</div></div>
@@ -413,6 +458,7 @@ function loginView(){return`<div class="loginbg" aria-hidden="true"><i class="s7
    <button class="btn pri" type="submit" id="lbtn">Sign in</button></form>
   ${S.msg?`<div class="msg bad">${esc(S.msg)}</div>`:window.__net&&window.__net.offline?`<div class="msg warn">You are offline. Judges already signed in on this device can continue, and scores update the tally when you are back online.</div>`:window.__dbErr?`<div class="msg bad">Database problem: ${esc(window.__dbErr)}</div>`:''}
   ${S.mode==='local'?'<div class="msg warn">Demo mode: data stays in this browser only.</div>':''}
+  ${canInstall()?`<div style="margin-top:14px">${instBtn('gold')}</div>`:''}
   <p class="hint" style="margin-bottom:0">A judge account works on one device only. If you are locked out, ask the tabulator to release it.</p></div></div><footer class="appfoot loginfoot">${COPY}</footer>`}
 
 /* ---- judge ---- */
@@ -911,6 +957,7 @@ document.addEventListener('click',async e=>{
   else if(a==='hdrdel'){S.hdr[+v]=null;render();try{await db.doc('config/hdr'+(+v+1)).delete()}catch(err){console.warn(err)}}
   else if(a==='download'){await downloadPdf(v==='all')}
   else if(a==='print'){const old=document.title;document.title='Voyadores Festival Tabulation - '+viewTitle();const back=()=>{document.title=old;window.removeEventListener('afterprint',back)};window.addEventListener('afterprint',back);window.print()}
+  else if(a==='install'){installApp()}
   else if(a==='logout'){const wasAdmin=S.session&&S.session.role==='admin';S.session=null;ls.del('tally.session');S.msg='';unsubAll();S.scores={};S.deds={};S.awards={};if(AUTH&&wasAdmin){S.secrets={};try{await AUTH.out();await AUTH.anon();device=AUTH.uid()}catch(err){console.warn(err)}}startCommon();render()}
   else if(a==='loaddefaults'){await db.doc('config/main').set(defaultCfg());toast('Festival defaults loaded')}
   else if(a==='addjcrit'){(S.draft.jcrit[v]=S.draft.jcrit[v]||[]).push({n:'New criterion',max:5});render()}
@@ -1131,7 +1178,7 @@ async function boot(){
   startCommon();startRole();render();
 }
 boot();
-if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(e=>console.warn('sw',e))});
 })();
 </script>
+<script>setTimeout(function(){var a=document.getElementById('app');if(a&&/Loading tabulator/.test(a.textContent))a.innerHTML='<div style="padding:24px;font-family:sans-serif;color:#b3261e">The tabulator could not start. Check the internet connection and the Firebase settings in this file, then reload.</div>'},12000)</script>
 </body></html>
