@@ -11,7 +11,7 @@
 <style>
 /* Layout: sticky app bar, primary category tabs, secondary sheet tabs, scrollable score tables. Navy river-blue with marigold highlight. */
 :root{
-  --bg:#f3effb; --surface:#ffffff; --surface2:#efe9fa; --line:#d9d0ec; --bar:#432a7a;
+  --bg:#ffffff; --surface:#ffffff; --surface2:#f4f1fa; --line:#ddd6ec; --bar:#432a7a;
   --ink:#1c1233; --muted:#5d5575; --navy:#432a7a; --navy-ink:#ffffff;
   --gold:#ffc90e; --gold-soft:#fff3c2; --gold-ink:#5a4000;
   --ok:#1b7a4b; --ok-soft:#dff3e8; --warn:#9a6200; --warn-soft:#fdf0d2; --bad:#b3261e; --bad-soft:#fbe3e0;
@@ -20,11 +20,6 @@
   --f-body:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
   --f-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#1a1033; --surface:#25184a; --surface2:#2e1f5c; --line:#443379; --bar:#2c1b5a;
-  --ink:#f1ecfb; --muted:#b9aed7; --navy:#b49cf5; --navy-ink:#1a1033;
-  --gold:#ffc90e; --gold-soft:#3a2f12; --gold-ink:#ffe08a;
-  --ok:#5fd29a; --ok-soft:#12362a; --warn:#f0b83a; --warn-soft:#3a2f12; --bad:#ff8f86; --bad-soft:#431c19; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#1a1033; --surface:#25184a; --surface2:#2e1f5c; --line:#443379; --bar:#2c1b5a;
   --ink:#f1ecfb; --muted:#b9aed7; --navy:#b49cf5; --navy-ink:#1a1033;
@@ -41,6 +36,8 @@ button,input,select{font:inherit;color:inherit}
 .bar .btn{font-size:13px;padding:7px 10px}.bar .brand{flex:1 1 180px;min-width:0}.bar .brand span{display:block}
 body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(circle at 100% 0,rgba(90,200,200,.22) 0 15vmax,transparent calc(15vmax + 1px)),radial-gradient(circle at 0 100%,rgba(240,65,37,.12) 0 13vmax,transparent calc(13vmax + 1px)),radial-gradient(circle at 100% 100%,rgba(255,201,14,.2) 0 10vmax,transparent calc(10vmax + 1px))}
 .head h2{color:var(--navy)}
+:root:not([data-theme="dark"]) body::before{opacity:.35}
+.themebtn{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));right:12px;z-index:6}
 .brand{display:flex;flex-direction:column;min-width:0;flex:1 1 220px}
 .brand b{font-family:var(--f-fest);font-size:24px;font-weight:400;letter-spacing:.02em;color:#fff;text-shadow:2px 2px 0 #f04125}
 .brand span{font-size:12px;color:#d9ccf5}
@@ -264,6 +261,10 @@ let db=null,AUTH=null;
 const $app=document.getElementById('app');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ls={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+function applyTheme(t){document.documentElement.setAttribute('data-theme',t);try{const m=document.querySelector('meta[name=theme-color]');if(m)m.content=t==='dark'?'#2c1b5a':'#432a7a'}catch(e){}}
+const curTheme=()=>document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light';
+applyTheme(ls.get('tally.theme')||(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'));
+const themeBtn=cls=>`<button class="btn ${cls||''}" data-act="theme" aria-label="Switch to ${curTheme()==='dark'?'light':'dark'} mode">${curTheme()==='dark'?'Light mode':'Dark mode'}</button>`;
 let device=ls.get('tally.device');
 if(!device){device='d'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);ls.set('tally.device',device)}
 const r2=n=>Math.round(n*100)/100;
@@ -416,7 +417,7 @@ function render(){
   const ev=S.cfg?S.cfg.event:'Street and Pilgrims Dance Competition';
   $app.innerHTML=`<div class="bar"><div class="brand"><b>Voyadores Festival Tabulation</b><span>${esc(ev)}</span></div>
     <span class="chip"><i></i>${esc(who)}</span><span class="hint" id="savedAt"></span>
-    ${exportBtns(s)}
+    ${themeBtn()}${exportBtns(s)}
     <button class="btn" data-act="logout">Sign out</button></div>
     ${hdrHtml('print-only hdrimgs')}
     <div class="print-only print-head"><b>${esc(ev)}</b><div>${esc(viewTitle())}</div>${me&&me.fullName?`<div>Judge: ${esc(me.fullName)}</div>`:''}<div>Printed ${esc(new Date().toLocaleString())}</div></div>
@@ -453,7 +454,7 @@ function viewTitle(){
   if(S.atab==='jsheet')return`Judges Score Sheet · ${catName(S.jsc)} Category · ${SUBN[S.jsd]}`;
   return TABN[S.atab]||''}
 
-function loginView(){return`<div class="loginbg" aria-hidden="true"><i class="s7"></i><i class="s1"></i><i class="s2"></i><i class="s3"></i><i class="s4"></i><i class="s5"></i><i class="s6"></i><i class="s8"></i><i class="s9"></i></div><div class="login"><div class="ina"><svg viewBox="0 0 200 262" role="img" aria-label="Cartoon of Nuestra Señora de Peñafrancia"><g><circle cx="100" cy="64" r="50" fill="#ffc90e" opacity=".3"/><g stroke="#ffc90e" stroke-width="4" stroke-linecap="round"><path d="M100 4v10M100 114v6M40 64h10M150 64h10M57 21l7 7M143 21l-7 7M57 107l7-7M143 107l-7-7"/></g><circle cx="100" cy="64" r="42" fill="none" stroke="#ffc90e" stroke-width="3"/><path d="M100 98C66 108 44 176 34 234H166C156 176 134 108 100 98Z" fill="#f04125"/><path d="M100 98C62 108 38 182 30 234H64C70 178 84 132 100 120C116 132 130 178 136 234H170C162 182 138 108 100 98Z" fill="#432a7a"/><path d="M100 98C62 108 38 182 30 234M100 98C138 108 162 182 170 234M100 120C84 132 70 178 64 234M100 120C116 132 130 178 136 234" fill="none" stroke="#ffc90e" stroke-width="3.5" stroke-linecap="round"/><g fill="#ffc90e"><path d="M100 142l8 10-8 10-8-10z"/><path d="M100 176l9 11-9 11-9-11z"/><path d="M100 208l10 12-10 12-10-12z"/></g><path d="M100 40C80 40 72 58 74 82C76 98 88 104 100 104C112 104 124 98 126 82C128 58 120 40 100 40Z" fill="#4a2c17"/><ellipse cx="100" cy="69" rx="17" ry="21" fill="#f4cfa6"/><circle cx="92.5" cy="67" r="2.3" fill="#2a1b12"/><circle cx="107.5" cy="67" r="2.3" fill="#2a1b12"/><circle cx="88" cy="75" r="4" fill="#f27a6b" opacity=".55"/><circle cx="112" cy="75" r="4" fill="#f27a6b" opacity=".55"/><path d="M93 78Q100 84 107 78" fill="none" stroke="#a5412a" stroke-width="2" stroke-linecap="round"/><path d="M79 46L83 26L92 39L100 19L108 39L117 26L121 46Z" fill="#ffc90e" stroke="#d99a00" stroke-width="2" stroke-linejoin="round"/><g fill="#f04125"><circle cx="83" cy="26" r="3"/><circle cx="100" cy="19" r="3.4"/><circle cx="117" cy="26" r="3"/></g><rect x="79" y="43" width="42" height="6" rx="3" fill="#ffc90e" stroke="#d99a00" stroke-width="1.5"/><path d="M44 150Q58 142 72 150L77 186H40Z" fill="#fecd05" stroke="#d99a00" stroke-width="2" stroke-linejoin="round"/><circle cx="58" cy="136" r="11" fill="#f4cfa6"/><path d="M48 134Q58 122 68 134Q58 128 48 134Z" fill="#4a2c17"/><circle cx="58" cy="136" r="15" fill="none" stroke="#ffc90e" stroke-width="2.5"/><circle cx="54.5" cy="137" r="1.5" fill="#2a1b12"/><circle cx="61.5" cy="137" r="1.5" fill="#2a1b12"/><path d="M55 142Q58 145 61 142" fill="none" stroke="#a5412a" stroke-width="1.5" stroke-linecap="round"/><ellipse cx="82" cy="170" rx="7" ry="5.5" fill="#f4cfa6"/><ellipse cx="118" cy="170" rx="7" ry="5.5" fill="#f4cfa6"/><rect x="18" y="232" width="164" height="20" rx="10" fill="#5ac8c8"/><path d="M30 242q8-6 16 0t16 0 16 0 16 0 16 0 16 0 16 0 16 0" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity=".8"/></g></svg><div class="inacap">Viva la Virgen!</div></div><div class="panel">
+function loginView(){return`<div class="loginbg" aria-hidden="true"><i class="s7"></i><i class="s1"></i><i class="s2"></i><i class="s3"></i><i class="s4"></i><i class="s5"></i><i class="s6"></i><i class="s8"></i><i class="s9"></i></div>${themeBtn('themebtn')}<div class="login"><div class="ina"><svg viewBox="0 0 200 262" role="img" aria-label="Cartoon of Nuestra Señora de Peñafrancia"><g><circle cx="100" cy="64" r="50" fill="#ffc90e" opacity=".3"/><g stroke="#ffc90e" stroke-width="4" stroke-linecap="round"><path d="M100 4v10M100 114v6M40 64h10M150 64h10M57 21l7 7M143 21l-7 7M57 107l7-7M143 107l-7-7"/></g><circle cx="100" cy="64" r="42" fill="none" stroke="#ffc90e" stroke-width="3"/><path d="M100 98C66 108 44 176 34 234H166C156 176 134 108 100 98Z" fill="#f04125"/><path d="M100 98C62 108 38 182 30 234H64C70 178 84 132 100 120C116 132 130 178 136 234H170C162 182 138 108 100 98Z" fill="#432a7a"/><path d="M100 98C62 108 38 182 30 234M100 98C138 108 162 182 170 234M100 120C84 132 70 178 64 234M100 120C116 132 130 178 136 234" fill="none" stroke="#ffc90e" stroke-width="3.5" stroke-linecap="round"/><g fill="#ffc90e"><path d="M100 142l8 10-8 10-8-10z"/><path d="M100 176l9 11-9 11-9-11z"/><path d="M100 208l10 12-10 12-10-12z"/></g><path d="M100 40C80 40 72 58 74 82C76 98 88 104 100 104C112 104 124 98 126 82C128 58 120 40 100 40Z" fill="#4a2c17"/><ellipse cx="100" cy="69" rx="17" ry="21" fill="#f4cfa6"/><circle cx="92.5" cy="67" r="2.3" fill="#2a1b12"/><circle cx="107.5" cy="67" r="2.3" fill="#2a1b12"/><circle cx="88" cy="75" r="4" fill="#f27a6b" opacity=".55"/><circle cx="112" cy="75" r="4" fill="#f27a6b" opacity=".55"/><path d="M93 78Q100 84 107 78" fill="none" stroke="#a5412a" stroke-width="2" stroke-linecap="round"/><path d="M79 46L83 26L92 39L100 19L108 39L117 26L121 46Z" fill="#ffc90e" stroke="#d99a00" stroke-width="2" stroke-linejoin="round"/><g fill="#f04125"><circle cx="83" cy="26" r="3"/><circle cx="100" cy="19" r="3.4"/><circle cx="117" cy="26" r="3"/></g><rect x="79" y="43" width="42" height="6" rx="3" fill="#ffc90e" stroke="#d99a00" stroke-width="1.5"/><path d="M44 150Q58 142 72 150L77 186H40Z" fill="#fecd05" stroke="#d99a00" stroke-width="2" stroke-linejoin="round"/><circle cx="58" cy="136" r="11" fill="#f4cfa6"/><path d="M48 134Q58 122 68 134Q58 128 48 134Z" fill="#4a2c17"/><circle cx="58" cy="136" r="15" fill="none" stroke="#ffc90e" stroke-width="2.5"/><circle cx="54.5" cy="137" r="1.5" fill="#2a1b12"/><circle cx="61.5" cy="137" r="1.5" fill="#2a1b12"/><path d="M55 142Q58 145 61 142" fill="none" stroke="#a5412a" stroke-width="1.5" stroke-linecap="round"/><ellipse cx="82" cy="170" rx="7" ry="5.5" fill="#f4cfa6"/><ellipse cx="118" cy="170" rx="7" ry="5.5" fill="#f4cfa6"/><rect x="18" y="232" width="164" height="20" rx="10" fill="#5ac8c8"/><path d="M30 242q8-6 16 0t16 0 16 0 16 0 16 0 16 0 16 0 16 0" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity=".8"/></g></svg><div class="inacap">Viva la Virgen!</div></div><div class="panel">
   <h1><span class="w1">Voyadores</span><span class="w2">Festival</span><span class="w3">Tabulation</span></h1>
   <form id="loginForm" class="grid" style="grid-template-columns:1fr">
    <div class="field"><label for="lu">Username</label><input id="lu" autocomplete="username" autocapitalize="off" required></div>
@@ -960,6 +961,7 @@ document.addEventListener('click',async e=>{
   else if(a==='hdrdel'){S.hdr[+v]=null;render();try{await db.doc('config/hdr'+(+v+1)).delete()}catch(err){console.warn(err)}}
   else if(a==='download'){await downloadPdf(v==='all')}
   else if(a==='print'){const old=document.title;document.title='Voyadores Festival Tabulation - '+viewTitle();const back=()=>{document.title=old;window.removeEventListener('afterprint',back)};window.addEventListener('afterprint',back);window.print()}
+  else if(a==='theme'){const t=curTheme()==='dark'?'light':'dark';ls.set('tally.theme',t);applyTheme(t);render()}
   else if(a==='install'){installApp()}
   else if(a==='logout'){const wasAdmin=S.session&&S.session.role==='admin';S.session=null;ls.del('tally.session');S.msg='';unsubAll();S.scores={};S.deds={};S.awards={};if(AUTH&&wasAdmin){S.secrets={};try{await AUTH.out();await AUTH.anon();device=AUTH.uid()}catch(err){console.warn(err)}}startCommon();render()}
   else if(a==='loaddefaults'){await db.doc('config/main').set(defaultCfg());toast('Festival defaults loaded')}
