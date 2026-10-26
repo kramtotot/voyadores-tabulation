@@ -50,7 +50,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 .btn.sm{padding:3px 10px;font-size:13px}
 .btn:disabled{opacity:.5;cursor:default}
 :focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;padding:8px 0;position:sticky;top:calc(var(--nb,0px) + var(--barh,64px));z-index:4;background:var(--bg)}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;padding:8px 0;position:sticky;top:calc(var(--nb,0px) + var(--barh,64px));z-index:4;background:color-mix(in srgb,var(--bg) 72%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 .tabs.sub{top:calc(var(--nb,0px) + var(--barh,64px) + var(--tabh,52px))}
 .tab{border:1px solid transparent;background:transparent;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:600;color:var(--muted)}
 .tab[aria-selected="true"]{background:var(--navy);color:var(--navy-ink)}
@@ -98,6 +98,8 @@ td input.bad{border-color:var(--bad);background:var(--bad-soft)}
 .login input{border-radius:10px}
 .loginbg{position:fixed;inset:0;z-index:0;overflow:hidden;background:#3d2872}
 .loginbg i{position:absolute;display:block}
+.loginbg.appbg{z-index:-1;background:transparent}
+body.in::before{display:none}
 .loginbg .s1{width:46vmin;height:46vmin;border-radius:50%;background:#5ac8c8;right:-12vmin;top:-12vmin}
 .loginbg .s2{width:30vmin;height:38vmin;border-radius:100vmax 100vmax 0 0;background:#f04125;left:-5vmin;bottom:-6vmin;transform:rotate(-12deg)}
 .loginbg .s3{width:30vmin;height:30vmin;border-radius:50%;border:8vmin solid #fecd05;right:6vmin;bottom:-8vmin}
@@ -175,6 +177,7 @@ td input.bad{border-color:var(--bad);background:var(--bad-soft)}
   .updbar,.modal{display:none!important}
   :root,:root:not([data-theme="light"]),:root[data-theme="dark"]{--bg:#fff;--surface:#fff;--surface2:#eee;--line:#888;--ink:#000;--muted:#333;--navy:#000;--navy-ink:#fff;--gold:#ddd;--gold-soft:#eee;--gold-ink:#000;--ok:#000;--ok-soft:#eee;--warn:#000;--warn-soft:#eee;--bad:#000;--bad-soft:#eee;color-scheme:light}
   @page{size:landscape;margin:10mm}
+  .loginbg{display:none!important}
   body{padding:0;font-size:11px;background:#fff;color:#000}
   body::before{display:none}
   .side{display:none!important}.shell{display:block}
@@ -409,12 +412,13 @@ document.addEventListener('focusout',()=>{setTimeout(()=>{const a=document.activ
 
 function render(){
   if(!db){$app.innerHTML=`<div class="login"><div class="panel"><h1>Voyadores Festival Tabulation</h1><p class="hint">Sign in to claude.ai to open the tabulator. The shared score database is not available in this view.</p></div></div>`;return}
+  document.body.classList.toggle('in',!!S.session);
   if(!S.session){$app.innerHTML=loginView();return}
   const s=S.session;
   const who=s.role==='admin'?'Admin · Tabulator':(S.judges[s.id]?S.judges[s.id].username:'Judge');
   const me=s.role==='judge'?(S.judges[s.id]||{}):null;
   const ev=S.cfg?S.cfg.event:'Street and Pilgrims Dance Competition';
-  $app.innerHTML=`<div class="bar"><div class="brand"><b>Voyadores Festival Tabulation</b><span>${esc(ev)}</span></div>
+  $app.innerHTML=`<div class="loginbg appbg" aria-hidden="true"><i class="s7"></i><i class="s1"></i><i class="s2"></i><i class="s3"></i><i class="s4"></i><i class="s5"></i><i class="s6"></i><i class="s8"></i><i class="s9"></i></div><div class="bar"><div class="brand"><b>Voyadores Festival Tabulation</b><span>${esc(ev)}</span></div>
     <span class="chip"><i></i>${esc(who)}</span><span class="hint" id="savedAt"></span>
     ${themeBtn()}${exportBtns(s)}
     <button class="btn" data-act="logout">Sign out</button></div>
