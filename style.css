@@ -74,16 +74,20 @@ td input.bad{border-color:var(--bad);background:var(--bad-soft)}
 .crit td:first-child{background:var(--surface)}
 .crit input[type=text]{width:100%;min-width:180px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 8px;text-align:left}
 .crit input[type=number]{width:76px}
-.login{position:relative;z-index:1;max-width:430px;margin:12vh auto 0;transition:opacity .6s ease .45s,transform .7s cubic-bezier(.2,.8,.2,1) .45s,visibility 0s}
-.login.hid{opacity:0;transform:translateY(48px) scale(.94);visibility:hidden;pointer-events:none;transition:none}
-.introov{position:fixed;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:transparent;border:0;cursor:pointer;padding:0;font:inherit}
-.introov svg{width:min(78vw,62vh,480px);height:auto;filter:drop-shadow(0 10px 18px rgba(10,4,30,.5));transform-origin:50% 40%;animation:bob 3s ease-in-out infinite alternate}
-.introov .inacap{font-size:clamp(28px,6vw,46px);margin-top:0;transition:opacity .35s}
-.taphint{color:#d9ccf5;font-size:14px;letter-spacing:.06em;transition:opacity .35s;animation:pulse 1.6s ease-in-out infinite}
-.introov:hover svg{filter:drop-shadow(0 10px 22px rgba(255,201,14,.55))}
-.introov.go{pointer-events:none;background:transparent}
-.introov.go svg{animation:none;transform:translateY(-34vh) scale(3.4);opacity:0;transition:transform 1s cubic-bezier(.6,0,.3,1),opacity .85s ease-in .1s}
-.introov.go .inacap,.introov.go .taphint{opacity:0;animation:none}
+.login{position:relative;z-index:1;max-width:430px;margin:3vh auto 0}
+.login.hid .panel{opacity:0;transform:translateY(40px) scale(.96);visibility:hidden;pointer-events:none}
+.login .panel{transition:opacity .8s ease .8s,transform .9s cubic-bezier(.2,.8,.2,1) .8s,visibility 0s}
+.lg{display:inline-flex;flex-direction:column;align-items:center;--w:min(150px,28vh)}
+.lg svg{width:var(--w);height:auto;filter:drop-shadow(0 6px 10px rgba(10,4,30,.45))}
+.lg .inacap{font-size:calc(var(--w)*.16);margin-top:2px;white-space:nowrap}
+.ina.ph .lg{visibility:hidden}
+.introov{position:fixed;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:transparent;border:0;cursor:pointer;padding:0;font:inherit}
+.introov .lg{--w:min(78vw,56vh,440px);animation:bob 3s ease-in-out infinite alternate}
+.taphint{color:#d9ccf5;font-size:14px;letter-spacing:.06em;transition:opacity .4s;animation:pulse 1.6s ease-in-out infinite}
+.introov:hover .lg svg{filter:drop-shadow(0 10px 22px rgba(255,201,14,.55))}
+.introov.go{pointer-events:none}
+.introov.go .lg{animation:none;transform:translate(var(--tx),var(--ty)) scale(var(--sc));transition:transform 1.6s cubic-bezier(.65,0,.25,1)}
+.introov.go .taphint{opacity:0;animation:none}
 @keyframes bob{to{transform:translateY(-10px)}}
 @keyframes pulse{50%{opacity:.4}}
 .ina{text-align:center;margin:0 0 14px;position:relative;z-index:2}
