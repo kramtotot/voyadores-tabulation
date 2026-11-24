@@ -6,7 +6,7 @@ const DANCES=[['street','Street Dance'],['pilgrims','Pilgrims Dance']];
 const DEF_AWARDS=()=>[{id:'music',n:'Best in Music'},{id:'costume',n:'Best in Costume'}];
 let AWARDS=DEF_AWARDS().map(a=>[a.id,a.n]);
 const ADMIN_EMAIL='admin@voyadores.local';   // must match the email in firestore.rules
-const APP_VERSION='v40';   // change this on every release so installed apps show the Update prompt
+const APP_VERSION='v41';   // change this on every release so installed apps show the Update prompt
 const APK_URL='';          // optional: link to an .apk you host (e.g. a GitHub release). Leave empty to hide.
 const COPY='\u00A9 2014 Zara Tabulation Team. All rights reserved.';
 const DEMO_PW='0000';   // only used in demo mode (no Firebase). Never used with Firebase.
@@ -757,7 +757,7 @@ document.addEventListener('click',async e=>{
     if(big&&ph){const b=big.getBoundingClientRect(),t=ph.getBoundingClientRect();const sc=t.width/b.width;
       big.style.transformOrigin='0 0';big.style.setProperty('--tx',(t.left-b.left)+'px');big.style.setProperty('--ty',(t.top-b.top)+'px');big.style.setProperty('--sc',sc)}
     ov.classList.add('go');const lg=document.querySelector('.login');if(lg)lg.classList.remove('hid');
-    setTimeout(()=>{S.intro='off';const o=document.querySelector('.introov');if(o)o.remove();const p=document.querySelector('.ina.ph');if(p)p.classList.remove('ph');const u=document.getElementById('lu');if(u)u.focus()},1700)}
+    setTimeout(()=>{S.intro='off';const o=document.querySelector('.introov');if(o)o.remove();const p=document.querySelector('.ina.ph');if(p)p.classList.remove('ph');const u=document.getElementById('lu');if(u)u.focus()},2400)}
   else if(a==='logout'){S.intro='on';const wasAdmin=S.session&&S.session.role==='admin';S.session=null;ls.del('tally.session');S.msg='';unsubAll();S.scores={};S.deds={};S.awards={};if(AUTH&&wasAdmin){S.secrets={};try{await AUTH.out();await AUTH.anon();device=AUTH.uid()}catch(err){console.warn(err)}}startCommon();render()}
   else if(a==='loaddefaults'){await db.doc('config/main').set(defaultCfg());toast('Festival defaults loaded')}
   else if(a==='addjcrit'){(S.draft.jcrit[v]=S.draft.jcrit[v]||[]).push({n:'New criterion',max:5});render()}
