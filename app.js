@@ -6,7 +6,7 @@ const DANCES=[['street','Street Dance'],['pilgrims','Pilgrims Dance']];
 const DEF_AWARDS=()=>[{id:'music',n:'Best in Music'},{id:'costume',n:'Best in Costume'}];
 let AWARDS=DEF_AWARDS().map(a=>[a.id,a.n]);
 const ADMIN_EMAIL='admin@voyadores.local';   // must match the email in firestore.rules
-const APP_VERSION='v43';   // change this on every release so installed apps show the Update prompt
+const APP_VERSION='v44';   // change this on every release so installed apps show the Update prompt
 const APK_URL='';          // optional: link to an .apk you host (e.g. a GitHub release). Leave empty to hide.
 const COPY='\u00A9 2014 Zara Tabulation Team. All rights reserved.';
 const DEMO_PW='0000';   // only used in demo mode (no Firebase). Never used with Firebase.
