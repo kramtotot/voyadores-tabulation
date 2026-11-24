@@ -2,7 +2,7 @@
    Own files: network first (so a new version shows up right after you update), cache as the offline fallback.
    Fonts and libraries: cached copy first, refreshed in the background.
    Firebase / Google API calls are never touched. */
-const CACHE='voyadores-v42';
+const CACHE='voyadores-v43';
 const CORE=['./','index.html','style.css','app.js','manifest.webmanifest','favicon.ico','icon-192.png'];
 const CDN=['fonts.googleapis.com','fonts.gstatic.com','www.gstatic.com','cdnjs.cloudflare.com'];
 self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>Promise.all(CORE.map(u=>c.add(new Request(u,{cache:'reload'})).catch(()=>{})))))});
