@@ -219,3 +219,9 @@ body.in::before{display:none}
 .lg[data-act=logo]:hover svg{filter:drop-shadow(0 6px 16px rgba(255,201,14,.55))}
 .login.hid.back .panel{transition:opacity 1.2s ease,visibility 0s 1.2s}
 .hs #app>.loginbg{display:none}
+/* embossed shapes */
+.loginbg i{filter:drop-shadow(7px 9px 10px rgba(8,2,26,.5));box-shadow:inset 5px 6px 10px rgba(255,255,255,.38),inset -7px -9px 14px rgba(0,0,0,.32)}
+.loginbg i::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(135deg,rgba(255,255,255,.28) 0,rgba(255,255,255,0) 45%,rgba(0,0,0,.14) 100%)}
+.loginbg .s3{box-shadow:inset 4px 5px 8px rgba(0,0,0,.35),inset -4px -5px 8px rgba(255,255,255,.3)}
+.loginbg .s3::after{display:none}
+:root:not([data-theme="dark"]) .loginbg.appbg i{filter:drop-shadow(5px 7px 8px rgba(40,20,90,.3))}
