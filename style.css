@@ -212,3 +212,10 @@ body.in::before{display:none}
   .head h2{font-size:16px}
 }
 .introov~.loginfoot{opacity:0}
+
+.introov{-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;outline:none}
+.introov:focus-visible{outline:none}
+.lg[data-act=logo]{cursor:pointer;-webkit-tap-highlight-color:transparent;outline:none}
+.lg[data-act=logo]:hover svg{filter:drop-shadow(0 6px 16px rgba(255,201,14,.55))}
+.login.hid.back .panel{transition:opacity 1.2s ease,visibility 0s 1.2s}
+.hs #app>.loginbg{display:none}
